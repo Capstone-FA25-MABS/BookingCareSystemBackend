@@ -1641,6 +1641,16 @@ public class DailyMealPlanGeneratedEvent : IntegrationEvent
     public Guid UserId { get; set; }
 
     /// <summary>
+    /// User email for sending notification
+    /// </summary>
+    public string? UserEmail { get; set; }
+
+    /// <summary>
+    /// User full name for personalization
+    /// </summary>
+    public string? UserFullName { get; set; }
+
+    /// <summary>
     /// Meal plan ID
     /// </summary>
     public Guid MealPlanId { get; set; }
@@ -1691,6 +1701,16 @@ public class DailyWorkoutPlanGeneratedEvent : IntegrationEvent
     /// User ID
     /// </summary>
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// User email for sending notification
+    /// </summary>
+    public string? UserEmail { get; set; }
+
+    /// <summary>
+    /// User full name for personalization
+    /// </summary>
+    public string? UserFullName { get; set; }
 
     /// <summary>
     /// Workout plan ID

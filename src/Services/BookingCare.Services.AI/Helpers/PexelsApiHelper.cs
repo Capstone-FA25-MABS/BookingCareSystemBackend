@@ -20,7 +20,7 @@ public class PexelsApiHelper
         _logger = logger;
         _httpClient = httpClient;
         _apiKey = configuration["Pexels:ApiKey"] ?? "";
-        
+
         // Set authorization header
         if (!string.IsNullOrEmpty(_apiKey))
         {
@@ -40,7 +40,7 @@ public class PexelsApiHelper
             var url = $"{BaseUrl}/search?query={Uri.EscapeDataString(query)}&per_page=1&orientation=landscape";
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Pexels API returned {StatusCode} for query: {Query}", response.StatusCode, query);
@@ -48,9 +48,9 @@ public class PexelsApiHelper
             }
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            var result = JsonSerializer.Deserialize<PexelsSearchResponse>(content, new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
+            var result = JsonSerializer.Deserialize<PexelsSearchResponse>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
             });
 
             if (result?.Photos != null && result.Photos.Count > 0)
@@ -80,7 +80,7 @@ public class PexelsApiHelper
             var url = $"{BaseUrl}/search?query={Uri.EscapeDataString(query)}&per_page=1&orientation=landscape";
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Pexels API returned {StatusCode} for query: {Query}", response.StatusCode, query);
@@ -88,9 +88,9 @@ public class PexelsApiHelper
             }
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            var result = JsonSerializer.Deserialize<PexelsSearchResponse>(content, new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
+            var result = JsonSerializer.Deserialize<PexelsSearchResponse>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
             });
 
             if (result?.Photos != null && result.Photos.Count > 0)

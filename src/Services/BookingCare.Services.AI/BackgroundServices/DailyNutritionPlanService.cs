@@ -6,13 +6,13 @@ namespace BookingCare.Services.AI.BackgroundServices;
 
 /// <summary>
 /// Background service to generate daily meal and workout plans for all users
-/// Runs daily at 6:00 AM
+/// Runs once daily at 00:00 (midnight) to prepare plans for the new day
 /// </summary>
 public class DailyNutritionPlanService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DailyNutritionPlanService> _logger;
-    private readonly TimeSpan _scheduledTime = new TimeSpan(6, 0, 0); // 6:00 AM
+    private readonly TimeSpan _scheduledTime = new TimeSpan(0, 0, 0); // 00:00 midnight
 
     public DailyNutritionPlanService(
         IServiceProvider serviceProvider,
@@ -24,7 +24,7 @@ public class DailyNutritionPlanService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Daily Nutrition Plan Service started");
+        _logger.LogInformation("Daily Nutrition Plan Service started - Runs at 00:00 (midnight) daily");
 
         while (!stoppingToken.IsCancellationRequested)
         {

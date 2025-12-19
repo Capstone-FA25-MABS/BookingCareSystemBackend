@@ -30,20 +30,17 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
 
     public async Task HandleAsync(DailyMealPlanGeneratedEvent @event, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "[NotificationService] Received DailyMealPlanGeneratedEvent - UserId: {UserId}, Date: {Date}, MealPlanId: {MealPlanId}",
+            @event.UserId, @event.Date, @event.MealPlanId);
+
         try
         {
-            _logger.LogInformation(
-                "Handling DailyMealPlanGeneratedEvent for UserId: {UserId}, Date: {Date}. Will send notification after 1 minute delay.",
-                @event.UserId, @event.Date);
+            // Send email notification first
+            await SendMealPlanEmailAsync(@event, cancellationToken);
 
-            // Delay 1 minute before sending notification (for testing purposes)
-            await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
-
-            _logger.LogInformation(
-                "1 minute delay completed. Now sending meal plan notification for UserId: {UserId}",
-                @event.UserId);
-
-            // Create notification event to be handled by CreateInAppNotificationEventHandler
+            // Create in-app notification event
+            var userName = !string.IsNullOrEmpty(@event.UserFullName) ? @event.UserFullName : "bạn";
             var notificationEvent = new CreateInAppNotificationEvent
             {
                 UserId = @event.UserId.ToString(),
@@ -52,8 +49,8 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
                 {
                     TitleVi = "Thực đơn hôm nay đã sẵn sàng!",
                     TitleEn = "Today's Meal Plan is Ready!",
-                    ContentVi = $"Thực đơn dinh dưỡng cho ngày {@event.Date:dd/MM/yyyy} đã được tạo với {@event.MealCount} bữa ăn và tổng {@event.TotalCalories} kcal. Xem ngay để bắt đầu chế độ ăn lành mạnh!",
-                    ContentEn = $"Your nutrition meal plan for {@event.Date:MM/dd/yyyy} is ready with {@event.MealCount} meals and {@event.TotalCalories} kcal total. Check it out to start your healthy eating!",
+                    ContentVi = $"Chào {userName}! Thực đơn dinh dưỡng cho ngày {@event.Date:dd/MM/yyyy} đã được tạo với {@event.MealCount} bữa ăn và tổng {@event.TotalCalories} kcal. Xem ngay để bắt đầu chế độ ăn lành mạnh!",
+                    ContentEn = $"Hi {userName}! Your nutrition meal plan for {@event.Date:MM/dd/yyyy} is ready with {@event.MealCount} meals and {@event.TotalCalories} kcal total. Check it out to start your healthy eating!",
                     Metadata = new Dictionary<string, object>
                     {
                         ["mealPlanId"] = @event.MealPlanId.ToString(),
@@ -74,19 +71,17 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
             // Publish in-app notification event
             await _eventBus.PublishAsync(notificationEvent, null, cancellationToken);
 
-            // Send email notification
-            await SendMealPlanEmailAsync(@event, cancellationToken);
-
             _logger.LogInformation(
-                "Successfully published meal plan notification event for UserId: {UserId}",
-                @event.UserId);
+                "[NotificationService] Successfully processed meal plan notification - UserId: {UserId}, MealPlanId: {MealPlanId}",
+                @event.UserId, @event.MealPlanId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Error handling DailyMealPlanGeneratedEvent for UserId: {UserId}",
-                @event.UserId);
-            throw;
+                "[NotificationService] Failed to process meal plan notification - UserId: {UserId}, MealPlanId: {MealPlanId}",
+                @event.UserId, @event.MealPlanId);
+
+            // Don't re-throw to avoid breaking the event processing pipeline
         }
     }
 
@@ -96,25 +91,14 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
     {
         try
         {
-            // TODO: Get user email from event or cache
-            // For now, skip email sending if email not provided in event
-            // This will be implemented when event includes user email
-
-            _logger.LogInformation(
-                "Meal plan email sending skipped for UserId: {UserId} (email not available in event)",
-                @event.UserId
-            );
-
-            // Uncomment when event includes user email:
-            /*
             if (string.IsNullOrEmpty(@event.UserEmail))
             {
                 _logger.LogWarning("User email not found in event for UserId: {UserId}", @event.UserId);
                 return;
             }
-            
+
             var emailContent = NutritionEmailTemplate.BuildMealPlanEmail(@event);
-            
+
             await _emailService.SendEmailAsync(
                 @event.UserEmail,
                 "🍽️ Thực đơn dinh dưỡng hôm nay",
@@ -122,12 +106,11 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
                 isHtml: true,
                 cancellationToken
             );
-            
+
             _logger.LogInformation(
                 "Sent meal plan email to {Email} for UserId: {UserId}",
                 @event.UserEmail, @event.UserId
             );
-            */
         }
         catch (Exception ex)
         {

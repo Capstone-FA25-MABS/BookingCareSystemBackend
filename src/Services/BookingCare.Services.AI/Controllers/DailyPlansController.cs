@@ -1,5 +1,6 @@
 using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Services.Interfaces;
+using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
@@ -22,15 +23,18 @@ public class DailyPlansController : BaseApiController
 {
     private readonly INutritionService _nutritionService;
     private readonly IEventBus _eventBus;
+    private readonly UserService.UserServiceClient _userServiceClient;
     private readonly ILogger<DailyPlansController> _logger;
 
     public DailyPlansController(
         INutritionService nutritionService,
         IEventBus eventBus,
+        UserService.UserServiceClient userServiceClient,
         ILogger<DailyPlansController> logger)
     {
         _nutritionService = nutritionService;
         _eventBus = eventBus;
+        _userServiceClient = userServiceClient;
         _logger = logger;
     }
 
@@ -66,6 +70,7 @@ public class DailyPlansController : BaseApiController
 
     /// <summary>
     /// Generate daily plan (meal + workout) for a specific date
+    /// Only allows generating for today or tomorrow
     /// </summary>
     [HttpPost("generate")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -75,10 +80,27 @@ public class DailyPlansController : BaseApiController
         CancellationToken cancellationToken = default)
     {
         var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-        var targetDate = date ?? DateTime.UtcNow.Date;
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+        var targetDate = date ?? today;
 
         _logger.LogInformation("Generating daily plan for AccountId: {AccountId}, Date: {Date}",
             accountId, targetDate);
+
+        // Validation: Only allow generating for today or tomorrow
+        if (targetDate < today)
+        {
+            _logger.LogWarning("Cannot generate plan for past date. AccountId: {AccountId}, Date: {Date}",
+                accountId, targetDate);
+            return BadRequest("Cannot generate plan for past dates");
+        }
+
+        if (targetDate > tomorrow)
+        {
+            _logger.LogWarning("Cannot generate plan for future date beyond tomorrow. AccountId: {AccountId}, Date: {Date}",
+                accountId, targetDate);
+            return BadRequest("Can only generate plan for today or tomorrow");
+        }
 
         // Generate both meal and workout plans
         var mealPlan = await _nutritionService.GenerateDailyMealPlanAsync(
@@ -96,12 +118,32 @@ public class DailyPlansController : BaseApiController
             CompletionPercentage = 0
         };
 
+        // Get user info for email notification
+        string? userEmail = null;
+        string? userFullName = null;
+        try
+        {
+            var userRequest = new GetUserByAccountIdRequest { AccountId = accountId.ToString() };
+            var userResponse = await _userServiceClient.GetUserByAccountIdAsync(userRequest, cancellationToken: cancellationToken);
+            if (userResponse != null)
+            {
+                userEmail = userResponse.Email;
+                userFullName = userResponse.FullName;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get user info for AccountId: {AccountId}", accountId);
+        }
+
         // Publish notification events
         try
         {
             var mealPlanEvent = new DailyMealPlanGeneratedEvent
             {
                 UserId = accountId,
+                UserEmail = userEmail,
+                UserFullName = userFullName,
                 MealPlanId = mealPlan.Id,
                 Date = targetDate,
                 TotalCalories = mealPlan.TotalCalories,
@@ -116,6 +158,8 @@ public class DailyPlansController : BaseApiController
             var workoutPlanEvent = new DailyWorkoutPlanGeneratedEvent
             {
                 UserId = accountId,
+                UserEmail = userEmail,
+                UserFullName = userFullName,
                 WorkoutPlanId = workoutPlan.Id,
                 Date = targetDate,
                 WorkoutType = workoutPlan.WorkoutType,

@@ -30,20 +30,17 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
 
     public async Task HandleAsync(DailyWorkoutPlanGeneratedEvent @event, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "[NotificationService] Received DailyWorkoutPlanGeneratedEvent - UserId: {UserId}, Date: {Date}, WorkoutPlanId: {WorkoutPlanId}",
+            @event.UserId, @event.Date, @event.WorkoutPlanId);
+
         try
         {
-            _logger.LogInformation(
-                "Handling DailyWorkoutPlanGeneratedEvent for UserId: {UserId}, Date: {Date}. Will send notification after 1 minute delay.",
-                @event.UserId, @event.Date);
+            // Send email notification first
+            await SendWorkoutPlanEmailAsync(@event, cancellationToken);
 
-            // Delay 1 minute before sending notification (for testing purposes)
-            await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
-
-            _logger.LogInformation(
-                "1 minute delay completed. Now sending workout plan notification for UserId: {UserId}",
-                @event.UserId);
-
-            // Create notification event to be handled by CreateInAppNotificationEventHandler
+            // Create in-app notification event
+            var userName = !string.IsNullOrEmpty(@event.UserFullName) ? @event.UserFullName : "bạn";
             var notificationEvent = new CreateInAppNotificationEvent
             {
                 UserId = @event.UserId.ToString(),
@@ -52,8 +49,8 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
                 {
                     TitleVi = "Kế hoạch tập luyện hôm nay!",
                     TitleEn = "Today's Workout Plan!",
-                    ContentVi = $"Kế hoạch tập luyện {@event.WorkoutType} cho ngày {@event.Date:dd/MM/yyyy} đã sẵn sàng với {@event.ExerciseCount} bài tập trong {@event.DurationMinutes} phút. Đốt cháy {@event.EstimatedCaloriesBurned} kcal!",
-                    ContentEn = $"Your {@event.WorkoutType} workout plan for {@event.Date:MM/dd/yyyy} is ready with {@event.ExerciseCount} exercises in {@event.DurationMinutes} minutes. Burn {@event.EstimatedCaloriesBurned} kcal!",
+                    ContentVi = $"Chào {userName}! Kế hoạch tập luyện {@event.WorkoutType} cho ngày {@event.Date:dd/MM/yyyy} đã sẵn sàng với {@event.ExerciseCount} bài tập trong {@event.DurationMinutes} phút. Đốt cháy {@event.EstimatedCaloriesBurned} kcal!",
+                    ContentEn = $"Hi {userName}! Your {@event.WorkoutType} workout plan for {@event.Date:MM/dd/yyyy} is ready with {@event.ExerciseCount} exercises in {@event.DurationMinutes} minutes. Burn {@event.EstimatedCaloriesBurned} kcal!",
                     Metadata = new Dictionary<string, object>
                     {
                         ["workoutPlanId"] = @event.WorkoutPlanId.ToString(),
@@ -73,19 +70,17 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
             // Publish in-app notification event
             await _eventBus.PublishAsync(notificationEvent, null, cancellationToken);
 
-            // Send email notification
-            await SendWorkoutPlanEmailAsync(@event, cancellationToken);
-
             _logger.LogInformation(
-                "Successfully published workout plan notification event for UserId: {UserId}",
-                @event.UserId);
+                "[NotificationService] Successfully processed workout plan notification - UserId: {UserId}, WorkoutPlanId: {WorkoutPlanId}",
+                @event.UserId, @event.WorkoutPlanId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Error handling DailyWorkoutPlanGeneratedEvent for UserId: {UserId}",
-                @event.UserId);
-            throw;
+                "[NotificationService] Failed to process workout plan notification - UserId: {UserId}, WorkoutPlanId: {WorkoutPlanId}",
+                @event.UserId, @event.WorkoutPlanId);
+
+            // Don't re-throw to avoid breaking the event processing pipeline
         }
     }
 
@@ -95,25 +90,14 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
     {
         try
         {
-            // TODO: Get user email from event or cache
-            // For now, skip email sending if email not provided in event
-            // This will be implemented when event includes user email
-
-            _logger.LogInformation(
-                "Workout plan email sending skipped for UserId: {UserId} (email not available in event)",
-                @event.UserId
-            );
-
-            // Uncomment when event includes user email:
-            /*
             if (string.IsNullOrEmpty(@event.UserEmail))
             {
                 _logger.LogWarning("User email not found in event for UserId: {UserId}", @event.UserId);
                 return;
             }
-            
+
             var emailContent = NutritionEmailTemplate.BuildWorkoutPlanEmail(@event);
-            
+
             await _emailService.SendEmailAsync(
                 @event.UserEmail,
                 "💪 Kế hoạch tập luyện hôm nay",
@@ -121,12 +105,11 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
                 isHtml: true,
                 cancellationToken
             );
-            
+
             _logger.LogInformation(
                 "Sent workout plan email to {Email} for UserId: {UserId}",
                 @event.UserEmail, @event.UserId
             );
-            */
         }
         catch (Exception ex)
         {

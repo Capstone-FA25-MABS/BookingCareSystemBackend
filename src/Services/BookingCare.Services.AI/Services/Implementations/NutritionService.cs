@@ -137,7 +137,46 @@ public class NutritionService : INutritionService
 
         _logger.LogInformation("Successfully saved nutrition profile for UserId: {UserId}", userId);
 
+        // Generate plans immediately for new profile
+        if (existingProfile == null)
+        {
+            _logger.LogInformation("New profile created, generating immediate plans for UserId: {UserId}", userId);
+            await GeneratePlansForNewProfileAsync(userId, cancellationToken);
+        }
+
         return await MapToDtoAsync(profile, cancellationToken);
+    }
+
+    /// <summary>
+    /// Generate meal and workout plans immediately for a new profile
+    /// </summary>
+    public async Task GeneratePlansForNewProfileAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Generating immediate plans for new profile, UserId: {UserId}", userId);
+
+        var today = DateTime.UtcNow.Date;
+
+        // Check if plans already exist for today
+        var existingMealPlan = await _context.MealPlans
+            .FirstOrDefaultAsync(m => m.AccountId == userId && m.Date.Date == today, cancellationToken);
+        var existingWorkoutPlan = await _context.WorkoutPlans
+            .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == today, cancellationToken);
+
+        // Generate meal plan if not exists
+        if (existingMealPlan == null)
+        {
+            _logger.LogInformation("Generating meal plan for today for UserId: {UserId}", userId);
+            await GenerateDailyMealPlanAsync(userId, today, cancellationToken);
+        }
+
+        // Generate workout plan if not exists
+        if (existingWorkoutPlan == null)
+        {
+            _logger.LogInformation("Generating workout plan for today for UserId: {UserId}", userId);
+            await GenerateDailyWorkoutPlanAsync(userId, today, cancellationToken);
+        }
+
+        _logger.LogInformation("Immediate plans generation completed for UserId: {UserId}", userId);
     }
 
     public async Task<NutritionProfileDto?> GetProfileByUserIdAsync(
@@ -1226,8 +1265,16 @@ LƯU Ý QUAN TRỌNG:
         var workoutPlan = await _context.WorkoutPlans
             .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == completedDate.Date, cancellationToken);
 
+        // Only update streak if BOTH meal plan AND workout plan are fully completed
         if (mealPlan?.IsFullyCompleted == true && workoutPlan?.IsFullyCompleted == true)
         {
+            // Prevent counting the same day multiple times
+            if (profile.LastCompletedDate.HasValue && profile.LastCompletedDate.Value.Date == completedDate.Date)
+            {
+                // Already counted this day, don't update
+                return;
+            }
+
             // Both completed - update streak
             if (profile.LastCompletedDate.HasValue)
             {
@@ -1242,7 +1289,7 @@ LƯU Ý QUAN TRỌNG:
                     // Streak broken - reset to 1
                     profile.StreakCount = 1;
                 }
-                // If daysDiff == 0, same day - don't change streak
+                // If daysDiff < 1, this shouldn't happen due to check above
             }
             else
             {
@@ -1253,6 +1300,9 @@ LƯU Ý QUAN TRỌNG:
             profile.LastCompletedDate = completedDate.Date;
             profile.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Streak updated for UserId: {UserId}, StreakCount: {StreakCount}, Date: {Date}",
+                userId, profile.StreakCount, completedDate.Date);
         }
     }
 
