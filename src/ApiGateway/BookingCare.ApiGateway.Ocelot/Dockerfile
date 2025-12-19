@@ -7,7 +7,8 @@ WORKDIR /app
 EXPOSE 5000
 
 # Use the official .NET 8 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -16,7 +17,7 @@ COPY ["src/ApiGateway/BookingCare.ApiGateway.Ocelot/BookingCare.ApiGateway.Ocelo
 COPY ["src/Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj", "src/Shared/BookingCare.Shared.Common/"]
 
 # Restore NuGet packages
-RUN dotnet restore "src/ApiGateway/BookingCare.ApiGateway.Ocelot/BookingCare.ApiGateway.Ocelot.csproj"
+RUN dotnet restore "src/ApiGateway/BookingCare.ApiGateway.Ocelot/BookingCare.ApiGateway.Ocelot.csproj" -a $TARGETARCH
 
 # Copy the entire source code
 COPY . .
@@ -25,12 +26,13 @@ COPY . .
 WORKDIR "/src/src/ApiGateway/BookingCare.ApiGateway.Ocelot"
 
 # Build the application
-RUN dotnet build "BookingCare.ApiGateway.Ocelot.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.ApiGateway.Ocelot.csproj" -c $BUILD_CONFIGURATION -o /app/build -a $TARGETARCH
 
 # Publish the application
 FROM build AS publish
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.ApiGateway.Ocelot.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.ApiGateway.Ocelot.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -a $TARGETARCH
 
 # Final stage: create the runtime image
 FROM base AS final

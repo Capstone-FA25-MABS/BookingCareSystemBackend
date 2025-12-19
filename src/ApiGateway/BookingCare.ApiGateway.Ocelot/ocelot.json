@@ -39,7 +39,6 @@
         "OPTIONS"
       ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -61,7 +60,6 @@
         "OPTIONS"
       ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -82,6 +80,21 @@
         "DELETE",
         "OPTIONS"
       ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/ai-insights/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "ai-service",
+          "Port": 6000
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/ai-insights/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         "AllowedScopes": []
       }
@@ -320,48 +333,6 @@
       ]
     },
     {
-      "DownstreamPathTemplate": "/api/v1/hospitals/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "hospital-service",
-          "Port": 6004
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v1/hospitals/{everything}",
-      "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ],
-      "AuthenticationOptions": {
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/api/v1/subscription-plans/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "hospital-service",
-          "Port": 6004
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v1/subscription-plans/{everything}",
-      "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ],
-      "AuthenticationOptions": {
-        "AllowedScopes": []
-      }
-    },
-    {
       "DownstreamPathTemplate": "/api/v{version}/subscription-plans/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -383,27 +354,6 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v1/hospital-subscriptions/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "hospital-service",
-          "Port": 6004
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v1/hospital-subscriptions/{everything}",
-      "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ],
-      "AuthenticationOptions": {
-        "AllowedScopes": []
-      }
-    },
-    {
       "DownstreamPathTemplate": "/api/v{version}/hospital-subscriptions/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -413,27 +363,6 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/hospital-subscriptions/{everything}",
-      "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ],
-      "AuthenticationOptions": {
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/api/v1/subscription-usage/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "hospital-service",
-          "Port": 6004
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v1/subscription-usage/{everything}",
       "UpstreamHttpMethod": [
         "GET",
         "POST",
@@ -1008,6 +937,27 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/stripe/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "payment-service",
+          "Port": 6011
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/stripe/{everything}",
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/bankaccounts/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -1045,6 +995,21 @@
         "DELETE",
         "OPTIONS"
       ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "payment-service",
+          "Port": 6011
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         "AllowedScopes": []
       }
@@ -1197,6 +1162,21 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/SpecialtySchedules/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "schedule-service",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/specialty-schedules/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/services/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -1277,7 +1257,6 @@
         "OPTIONS"
       ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -1286,7 +1265,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "user-service",
           "Port": 6016
         }
       ],

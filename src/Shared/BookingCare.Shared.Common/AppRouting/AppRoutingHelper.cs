@@ -23,8 +23,18 @@ namespace BookingCare.Shared.Common.AppRouting
                 try
                 {
                     var uri = new Uri(origin);
-                    var hostWithPort = $"{uri.Host.ToLowerInvariant()}:{uri.Port}";
+                    var host = uri.Host.ToLowerInvariant();
+                    var hostWithPort = $"{host}:{uri.Port}";
+
+                    // Try matching with port first (e.g., "localhost:5173")
                     if (options.HostMap.TryGetValue(hostWithPort, out var mapped))
+                    {
+                        return mapped;
+                    }
+
+                    // Fallback: try matching host only (e.g., "medcure.com.vn")
+                    // This handles production domains where port is default (80/443)
+                    if (options.HostMap.TryGetValue(host, out mapped))
                     {
                         return mapped;
                     }

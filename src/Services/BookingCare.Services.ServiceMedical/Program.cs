@@ -36,6 +36,7 @@ builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 builder.Services.AddScoped<ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
+builder.Services.AddSingleton<BookingCare.Services.ServiceMedical.Services.DatabaseInitializationService>();
 
 // Add Hospital gRPC clients
 var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
@@ -125,6 +126,12 @@ app.UseRouting();
 
 // Standard auth pipeline (Authentication, Authorization, AutoToken, etc.)
 app.UseStandardAuthPipeline();
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
+{
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.ServiceMedical.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
+}
 
 app.MapControllers();
 

@@ -10,9 +10,14 @@ namespace BookingCare.Services.Notification.Repositories.Implementations;
 public class DeviceRepository : IDeviceRepository
 {
     private readonly IMongoCollection<Device> _devices;
+    private readonly ILogger<DeviceRepository> _logger;
 
-    public DeviceRepository(IOptions<MongoDbSettings> settings)
+    public DeviceRepository(
+        IOptions<MongoDbSettings> settings,
+        ILogger<DeviceRepository> logger)
     {
+        _logger = logger;
+
         try
         {
             var mongoSettings = settings.Value;
@@ -32,10 +37,40 @@ public class DeviceRepository : IDeviceRepository
             var client = new MongoClient(mongoSettings.ConnectionString);
             var database = client.GetDatabase(mongoSettings.DatabaseName);
             _devices = database.GetCollection<Device>(mongoSettings.DevicesCollectionName);
+
+            // Create indexes (this also ensures the collection is created)
+            CreateIndexes();
         }
         catch (Exception ex)
         {
             throw new DeviceException("Failed to initialize DeviceRepository", "DEVICE_INITIALIZATION_ERROR", System.Net.HttpStatusCode.InternalServerError, ex);
+        }
+    }
+
+    private void CreateIndexes()
+    {
+        try
+        {
+            // Unique index on Token for fast lookup and preventing duplicates
+            var tokenIndex = Builders<Device>.IndexKeys.Ascending(d => d.Token);
+            var tokenIndexOptions = new CreateIndexOptions { Unique = true };
+            _devices.Indexes.CreateOne(new CreateIndexModel<Device>(tokenIndex, tokenIndexOptions));
+
+            // Index on IsActive for filtering active devices
+            var isActiveIndex = Builders<Device>.IndexKeys.Ascending(d => d.IsActive);
+            _devices.Indexes.CreateOne(new CreateIndexModel<Device>(isActiveIndex));
+
+            // Compound index for IsActive + RegisteredAt (for sorted queries)
+            var activeRegisteredIndex = Builders<Device>.IndexKeys
+                .Ascending(d => d.IsActive)
+                .Descending(d => d.RegisteredAt);
+            _devices.Indexes.CreateOne(new CreateIndexModel<Device>(activeRegisteredIndex));
+
+            _logger.LogInformation("MongoDB indexes created successfully for devices collection");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create indexes for devices collection. They may already exist.");
         }
     }
 
