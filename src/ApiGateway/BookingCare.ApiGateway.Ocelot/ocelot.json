@@ -39,7 +39,6 @@
         "OPTIONS"
       ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -61,7 +60,6 @@
         "OPTIONS"
       ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -82,6 +80,21 @@
         "DELETE",
         "OPTIONS"
       ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/ai-insights/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "ai-service",
+          "Port": 6000
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/ai-insights/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         "AllowedScopes": []
       }
