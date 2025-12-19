@@ -54,7 +54,7 @@ public static class ServiceConfigurationExtensions
         }
 
         // Add Frontend configuration for AutoToken middleware
-        services.AddFrontendConfiguration(configuration);
+        services.AddFrontendConfiguration();
 
         return services;
     }
@@ -83,7 +83,7 @@ public static class ServiceConfigurationExtensions
         }
 
         // Add Frontend configuration for AutoToken middleware
-        services.AddFrontendConfiguration(configuration);
+        services.AddFrontendConfiguration();
 
         return services;
     }

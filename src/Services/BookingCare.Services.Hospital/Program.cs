@@ -61,6 +61,7 @@ builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationSer
 builder.Services.AddScoped<IAdminSignatureService, AdminSignatureService>();
 builder.Services.AddScoped<IContractGenerationService, ContractGenerationService>();
 builder.Services.AddScoped<IContractSigningService, ContractSigningService>();
+builder.Services.AddSingleton<DatabaseInitializationService>();
 
 // eKYC Service (FPT.AI Integration)
 builder.Services.AddHttpClient<FptEkycService>();
@@ -194,20 +195,11 @@ app.UseEventBus(eventBus =>
     >();
 });
 
-// Database migration and seeding (development only)
-if (app.Environment.IsDevelopment())
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    try
-    {
-        var context = scope.ServiceProvider.GetRequiredService<HospitalDbContext>();
-        await context.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Database ensured created successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
-    }
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Hospital.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 
 await app.RunAsync();

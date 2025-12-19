@@ -18,9 +18,15 @@ output "instance_state" {
   value       = aws_instance.main.instance_state
 }
 
+# Elastic IP output - DISABLED
+# output "elastic_ip" {
+#   description = "Elastic IP address (if enabled)"
+#   value       = var.enable_eip ? aws_eip.main[0].public_ip : null
+# }
+
 output "elastic_ip" {
-  description = "Elastic IP address (if enabled)"
-  value       = var.enable_eip ? aws_eip.main[0].public_ip : null
+  description = "Elastic IP disabled - using dynamic public IP"
+  value       = null
 }
 
 output "docker_volume_id" {

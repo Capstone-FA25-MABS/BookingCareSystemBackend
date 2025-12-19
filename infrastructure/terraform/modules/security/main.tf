@@ -61,31 +61,18 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = var.allowed_http_cidr
   }
 
-  # Microservices HTTP ports (6000-6020)
-  ingress {
-    description = "Microservices HTTP"
-    from_port   = 6000
-    to_port     = 6020
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
-  }
+  # NOTE: Microservices ports (6000-6020, 6100-6120) are NOT exposed
+  # They communicate internally via Docker network
+  # Only API Gateway is exposed to handle external requests
 
-  # Microservices gRPC ports (6100-6120)
-  ingress {
-    description = "Microservices gRPC"
-    from_port   = 6100
-    to_port     = 6120
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
-  }
-
-  # RabbitMQ Management
+  # RabbitMQ Management (OPTIONAL - only for admin access)
+  # Consider restricting to admin IPs only in production
   ingress {
     description = "RabbitMQ Management UI"
     from_port   = 15672
     to_port     = 15672
     protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
+    cidr_blocks = var.allowed_ssh_cidr  # Changed from allowed_http_cidr to allowed_ssh_cidr
   }
 
   # Grafana
@@ -113,6 +100,114 @@ resource "aws_security_group" "ec2" {
     to_port     = 16686
     protocol    = "tcp"
     cidr_blocks = var.allowed_http_cidr
+  }
+
+  # SQL Server - Discount Service
+  ingress {
+    description = "SQL Server Discount"
+    from_port   = 1434
+    to_port     = 1434
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Saga Service
+  ingress {
+    description = "SQL Server Saga"
+    from_port   = 1400
+    to_port     = 1400
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - User Service
+  ingress {
+    description = "SQL Server User"
+    from_port   = 1445
+    to_port     = 1445
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Schedule Service
+  ingress {
+    description = "SQL Server Schedule"
+    from_port   = 1446
+    to_port     = 1446
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Doctor Service
+  ingress {
+    description = "SQL Server Doctor"
+    from_port   = 1447
+    to_port     = 1447
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Hospital Service
+  ingress {
+    description = "SQL Server Hospital"
+    from_port   = 1448
+    to_port     = 1448
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Auth Service
+  ingress {
+    description = "SQL Server Auth"
+    from_port   = 1449
+    to_port     = 1449
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Appointment Service
+  ingress {
+    description = "SQL Server Appointment"
+    from_port   = 1450
+    to_port     = 1450
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - Payment Service
+  ingress {
+    description = "SQL Server Payment"
+    from_port   = 1451
+    to_port     = 1451
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - ServiceMedical Service
+  ingress {
+    description = "SQL Server ServiceMedical"
+    from_port   = 1452
+    to_port     = 1452
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SQL Server - AI Service
+  ingress {
+    description = "SQL Server AI"
+    from_port   = 1453
+    to_port     = 1453
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # MongoDB
+  ingress {
+    description = "MongoDB"
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Outbound traffic

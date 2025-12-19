@@ -44,6 +44,7 @@ builder.Services.AddAutoMapper(typeof(ScheduleMappingProfile));
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IHoldSlotService, HoldSlotService>();
+builder.Services.AddSingleton<BookingCare.Services.Schedule.Services.DatabaseInitializationService>();
 
 // Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
 // Register GrpcClients wrapper to reduce constructor parameter count
@@ -78,11 +79,11 @@ if (app.Environment.IsDevelopment())
 // Add global exception handling
 app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();
-// Apply database migrations
+// Initialize database from SQL script if not exists
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<ScheduleDbContext>();
-    await context.Database.MigrateAsync();
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Schedule.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 
 app.MapControllers();
