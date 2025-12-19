@@ -80,6 +80,15 @@ public enum NotificationType
     /// <summary>
     /// Admin-specific alert notification
     /// </summary>
-    AdminAlert = 14
-}
+    AdminAlert = 14,
 
+    /// <summary>
+    /// Daily meal plan notification
+    /// </summary>
+    NutritionMealPlan = 15,
+
+    /// <summary>
+    /// Daily workout plan notification
+    /// </summary>
+    NutritionWorkoutPlan = 16
+}
