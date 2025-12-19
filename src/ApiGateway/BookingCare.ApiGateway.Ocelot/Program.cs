@@ -13,7 +13,7 @@ builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environmen
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
 
 // Add configuration
-builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
+builder.Configuration.AddJsonFile("ocelot.dev.json", optional: false, reloadOnChange: true);
 
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();

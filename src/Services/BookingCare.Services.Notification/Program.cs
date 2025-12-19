@@ -104,6 +104,8 @@ builder.Services.AddIntegrationEventHandler<AppointmentAutoCancelledDueToNoDocto
 builder.Services.AddIntegrationEventHandler<HospitalContractGeneratedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalContractSignedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentRejectedNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<DailyMealPlanGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<DailyWorkoutPlanGeneratedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentReminderEventHandler>();
 
 // gRPC client for Auth service
@@ -204,6 +206,10 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to appointment rejection event (pending appointment rejected by hospital staff)
     eventBus.Subscribe<AppointmentRejectedNotificationEvent, AppointmentRejectedNotificationEventHandler>();
+
+    // Subscribe to nutrition events for daily meal and workout plan notifications
+    eventBus.Subscribe<DailyMealPlanGeneratedEvent, DailyMealPlanGeneratedEventHandler>();
+    eventBus.Subscribe<DailyWorkoutPlanGeneratedEvent, DailyWorkoutPlanGeneratedEventHandler>();
 
     // Subscribe to appointment reminder event (24h and 1h before appointment)
     eventBus.Subscribe<AppointmentReminderEvent, AppointmentReminderEventHandler>();
