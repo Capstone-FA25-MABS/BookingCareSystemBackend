@@ -105,6 +105,12 @@ public class BlogService : IBlogService
 
         var entity = _mapper.Map<BlogEntity>(request);
         entity.CreatedBy = createdBy;
+        // Auto-approve newly created blogs (temporary): set status active and publish immediately if not specified
+        entity.Status = BlogStatus.Active;
+        if (!entity.PublishedAt.HasValue)
+        {
+            entity.PublishedAt = DateTime.UtcNow;
+        }
         await _blogRepository.AddAsync(entity, cancellationToken);
 
         var created = await _blogRepository.GetByIdAsync(entity.Id, cancellationToken)
@@ -136,9 +142,10 @@ public class BlogService : IBlogService
         existing.HeroImageUrl = request.HeroImageUrl;
         existing.Tag = request.Tag;
         existing.Source = request.Source;
-        existing.Status = request.Status;
+        // Auto-approve updates as well (temporary): force status to Active and set PublishedAt if missing
+        existing.Status = BlogStatus.Active;
         existing.Featured = request.Featured;
-        existing.PublishedAt = request.PublishedAt;
+        existing.PublishedAt = request.PublishedAt ?? existing.PublishedAt ?? DateTime.UtcNow;
 
         await _blogRepository.UpdateAsync(existing, cancellationToken);
 
