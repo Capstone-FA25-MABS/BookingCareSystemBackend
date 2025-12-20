@@ -3,6 +3,7 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using BookingCare.Shared.FileUpload.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
@@ -53,11 +54,12 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         #region Service CRUD Operations
 
         /// <summary>
-        /// Create a new service
+        /// Create a new service (Admin & Staff only)
         /// </summary>
         /// <param name="request">Service creation request</param>
         /// <returns>Created service</returns>
         [HttpPost]
+        [Authorize(Policy = "Role:Admin,Staff")]
         public async Task<ActionResult<ServiceResponse>> CreateService(
             [FromBody] CreateServiceRequest request
         )
@@ -88,14 +90,14 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Create a new service with image upload
+        /// Create a new service with image upload (Admin & Staff only)
         /// </summary>
         /// <param name="request">Service creation request</param>
         /// <param name="imageFile">Service image file</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Created service</returns>
         [HttpPost("upload-image")]
-        // [Authorize] // Temporarily disabled for testing - enable after authentication is configured
+        [Authorize(Policy = "Role:Admin,Staff")]
         public async Task<ActionResult<ServiceResponse>> CreateServiceWithImage(
             [FromForm] CreateServiceRequest request,
             [FromForm] IFormFile? imageFile,
@@ -258,12 +260,13 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Update service
+        /// Update service (Admin & Staff only)
         /// </summary>
         /// <param name="id">Service ID</param>
         /// <param name="request">Service update request</param>
         /// <returns>Updated service</returns>
         [HttpPut("{id}")]
+        [Authorize(Policy = "Role:Admin,Staff")]
         public async Task<ActionResult<ServiceResponse>> UpdateService(
             Guid id,
             [FromBody] UpdateServiceRequest request
@@ -291,7 +294,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Update service with image upload
+        /// Update service with image upload (Admin & Staff only)
         /// </summary>
         /// <param name="id">Service ID</param>
         /// <param name="request">Service update request</param>
@@ -299,7 +302,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Updated service</returns>
         [HttpPut("{id}/upload-image")]
-        // [Authorize] // Temporarily disabled for testing - enable after authentication is configured
+        [Authorize(Policy = "Role:Admin,Staff")]
         public async Task<ActionResult<ServiceResponse>> UpdateServiceWithImage(
             Guid id,
             [FromForm] UpdateServiceRequest request,
@@ -403,11 +406,12 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Delete service (soft delete - changes status to INACTIVE)
+        /// Delete service (soft delete - changes status to INACTIVE, Admin & Staff only)
         /// </summary>
         /// <param name="id">Service ID</param>
         /// <returns>Success status</returns>
         [HttpDelete("{id}")]
+        [Authorize(Policy = "Role:Admin,Staff")]
         public async Task<IActionResult> DeleteService(Guid id)
         {
             try

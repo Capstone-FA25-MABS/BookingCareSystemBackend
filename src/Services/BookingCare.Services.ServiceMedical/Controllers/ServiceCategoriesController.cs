@@ -3,6 +3,7 @@ using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
@@ -47,11 +48,12 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         #region ServiceCategory CRUD Operations
 
         /// <summary>
-        /// Create a new service category
+        /// Create a new service category (Admin only)
         /// </summary>
         /// <param name="request">Service category creation request</param>
         /// <returns>Created service category</returns>
         [HttpPost]
+        [Authorize(Policy = "Role:Admin")]
         public async Task<ActionResult<ServiceCategoryResponse>> CreateServiceCategory([FromBody] CreateServiceCategoryRequest request)
         {
             try
@@ -96,12 +98,13 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Update service category
+        /// Update service category (Admin only)
         /// </summary>
         /// <param name="id">Service category ID</param>
         /// <param name="request">Service category update request</param>
         /// <returns>Updated service category</returns>
         [HttpPut("{id}")]
+        [Authorize(Policy = "Role:Admin")]
         public async Task<ActionResult<ServiceCategoryResponse>> UpdateServiceCategory(Guid id, [FromBody] UpdateServiceCategoryRequest request)
         {
             try
@@ -126,11 +129,12 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Delete service category (soft delete - changes status to INACTIVE)
+        /// Delete service category (soft delete - changes status to INACTIVE, Admin only)
         /// </summary>
         /// <param name="id">Service category ID</param>
         /// <returns>Success status</returns>
         [HttpDelete("{id}")]
+        [Authorize(Policy = "Role:Admin")]
         public async Task<IActionResult> DeleteServiceCategory(Guid id)
         {
             try

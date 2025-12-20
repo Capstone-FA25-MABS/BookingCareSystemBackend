@@ -85,6 +85,9 @@ builder.Services.AddVersionedApiExplorer(setup =>
 // Add S3 File Upload services
 builder.Services.AddS3FileUpload(builder.Configuration);
 
+// Add JWT Authentication & Authorization (including dynamic role policies)
+builder.Services.AddJwtAuthAndAuthorization(builder.Configuration, builder.Environment);
+
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
@@ -121,6 +124,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
+// Standard auth pipeline (Authentication, Authorization, AutoToken, etc.)
+app.UseStandardAuthPipeline();
 // Initialize database from SQL script if not exists
 using (var scope = app.Services.CreateScope())
 {
