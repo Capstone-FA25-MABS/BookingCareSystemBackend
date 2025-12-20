@@ -70,7 +70,7 @@ public class DailyPlansController : BaseApiController
 
     /// <summary>
     /// Generate daily plan (meal + workout) for a specific date
-    /// Only allows generating for today or tomorrow
+    /// Allows generating for any future date
     /// </summary>
     [HttpPost("generate")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -81,25 +81,17 @@ public class DailyPlansController : BaseApiController
     {
         var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
         var today = DateTime.UtcNow.Date;
-        var tomorrow = today.AddDays(1);
         var targetDate = date ?? today;
 
         _logger.LogInformation("Generating daily plan for AccountId: {AccountId}, Date: {Date}",
             accountId, targetDate);
 
-        // Validation: Only allow generating for today or tomorrow
+        // Validation: Only allow generating for today or future dates
         if (targetDate < today)
         {
             _logger.LogWarning("Cannot generate plan for past date. AccountId: {AccountId}, Date: {Date}",
                 accountId, targetDate);
             return BadRequest("Cannot generate plan for past dates");
-        }
-
-        if (targetDate > tomorrow)
-        {
-            _logger.LogWarning("Cannot generate plan for future date beyond tomorrow. AccountId: {AccountId}, Date: {Date}",
-                accountId, targetDate);
-            return BadRequest("Can only generate plan for today or tomorrow");
         }
 
         // Generate both meal and workout plans

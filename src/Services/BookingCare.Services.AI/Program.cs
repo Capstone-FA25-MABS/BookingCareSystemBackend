@@ -1,4 +1,3 @@
-using BookingCare.Services.AI.BackgroundServices;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Data;
 using BookingCare.Services.AI.Helpers;
@@ -158,9 +157,6 @@ builder.Services.AddScoped<IAudioTranscriptionWorkflow, AudioTranscriptionWorkfl
 builder.Services.AddScoped<HealthMetricsCalculator>();
 builder.Services.AddScoped<INutritionService, NutritionService>();
 builder.Services.AddScoped<INutritionConversationService, NutritionConversationService>();
-
-// Register Nutrition Background Service
-builder.Services.AddHostedService<DailyNutritionPlanService>();
 
 // Add S3 File Upload services
 builder.Services.AddS3FileUpload(builder.Configuration);
