@@ -995,4 +995,46 @@ public class ReviewService : BaseService, IReviewService
             "GetBatchHospitalsStatistics"
         );
     }
+
+    /// <summary>
+    /// Gets high-quality reviews from across the platform for testimonial display
+    /// </summary>
+    public async Task<PagedReviewsResponse> GetTestimonialReviewsAsync(
+        int page = 1,
+        int pageSize = 20,
+        int minRating = 4
+    )
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Getting testimonial reviews: Page={Page}, PageSize={PageSize}, MinRating={MinRating}",
+                    null,
+                    page,
+                    pageSize,
+                    minRating
+                );
+
+                var result = await _reviewRepository.GetTestimonialReviewsAsync(
+                    page,
+                    pageSize,
+                    minRating
+                );
+
+                // Enrich with patient information
+                await EnrichReviewsWithOptimizedInfo(result.Reviews);
+
+                LogInfo(
+                    "Testimonial reviews retrieved: {Count} reviews out of {Total} total",
+                    null,
+                    result.Reviews.Count,
+                    result.TotalCount
+                );
+
+                return result;
+            },
+            "GetTestimonialReviews"
+        );
+    }
 }

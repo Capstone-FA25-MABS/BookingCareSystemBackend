@@ -8,7 +8,8 @@ EXPOSE 6006
 EXPOSE 6106
 
 # Use the official .NET 8 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -20,9 +21,9 @@ COPY ["src/Shared/BookingCare.Shared.Cache/BookingCare.Shared.Cache.csproj", "sr
 COPY ["src/Shared/BookingCare.Shared.FileUpload/BookingCare.Shared.FileUpload.csproj", "src/Shared/BookingCare.Shared.FileUpload/"]
 
 # Restore NuGet packages with retry logic for network issues
-RUN dotnet restore "src/Services/BookingCare.Services.Communication/BookingCare.Services.Communication.csproj" \
+RUN dotnet restore "src/Services/BookingCare.Services.Communication/BookingCare.Services.Communication.csproj" -a $TARGETARCH \
     --disable-parallel \
-    || dotnet restore "src/Services/BookingCare.Services.Communication/BookingCare.Services.Communication.csproj"
+    || dotnet restore "src/Services/BookingCare.Services.Communication/BookingCare.Services.Communication.csproj" -a $TARGETARCH
 
 # Copy the entire source code
 COPY . .
@@ -31,12 +32,13 @@ COPY . .
 WORKDIR "/src/src/Services/BookingCare.Services.Communication"
 
 # Build the application
-RUN dotnet build "BookingCare.Services.Communication.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.Services.Communication.csproj" -c $BUILD_CONFIGURATION -o /app/build -a $TARGETARCH
 
 # Publish the application
 FROM build AS publish
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.Communication.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.Services.Communication.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -a $TARGETARCH
 
 # Final stage: create the runtime image
 FROM base AS final

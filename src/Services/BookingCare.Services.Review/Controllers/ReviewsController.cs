@@ -434,6 +434,25 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
+    /// Gets high-quality reviews from across the platform for testimonial display
+    /// </summary>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter (1-5)</param>
+    /// <returns>Paginated high-quality reviews from all sources</returns>
+    [HttpGet("testimonials")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetTestimonialReviews(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] int minRating = 4
+    )
+    {
+        var result = await _reviewService.GetTestimonialReviewsAsync(page, pageSize, minRating);
+        return Success(result, "Testimonial reviews retrieved successfully");
+    }
+
+    /// <summary>
     /// Health check endpoint
     /// </summary>
     /// <returns>Service health status</returns>

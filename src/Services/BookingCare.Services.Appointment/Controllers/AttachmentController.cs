@@ -11,7 +11,7 @@ namespace BookingCare.Services.Appointment.Controllers;
 [Produces("application/json")]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-[Authorize]
+[Authorize(Policy = "Role:Admin,Staff,Doctor,Patient")]
 public class AttachmentController : BaseApiController
 {
     private readonly FileUploadOrchestrator _uploadOrchestrator;
