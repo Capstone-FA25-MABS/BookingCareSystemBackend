@@ -67,8 +67,8 @@ public class BlogFilterParameters
     public BlogStatus? Status { get; set; }
     public bool? Featured { get; set; }
     public string? Keyword { get; set; }
-        // If true, only search within titles (TitleVi and TitleEn)
-        public bool? TitleOnly { get; set; }
+    // If true, only search within titles (TitleVi and TitleEn)
+    public bool? TitleOnly { get; set; }
     public Guid? CreatedByAccountId { get; set; }
     public Guid? CreatedByDoctorId { get; set; }
     public Guid? CreatedByHospitalId { get; set; }

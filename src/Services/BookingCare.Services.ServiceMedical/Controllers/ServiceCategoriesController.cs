@@ -49,6 +49,20 @@ namespace BookingCare.Services.ServiceMedical.Controllers
 
         #endregion
 
+        #region Helpers
+
+        private async Task<FileUploadOrchestratorResult> UploadImageInternalAsync(IFormFile imageFile, FileUploadConfig config, CancellationToken cancellationToken)
+        {
+            return await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
+        }
+
+        private async Task<FileDeletionOrchestratorResult> DeleteOldImageInternalAsync(FileDeletionConfig deleteConfig, CancellationToken cancellationToken)
+        {
+            return await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
+        }
+
+        #endregion
+
         #region ServiceCategory CRUD Operations
 
         /// <summary>
@@ -367,13 +381,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         EntityType = "service-category-image",
                     };
 
-                    var uploadResult = await _uploadOrchestrator.UploadFileAsync(
-                        imageFile,
-                        config,
-                        Guid.Empty,
-                        _logger,
-                        cancellationToken
-                    );
+                    var uploadResult = await UploadImageInternalAsync(imageFile, config, cancellationToken);
 
                     if (!uploadResult.Success)
                     {
@@ -440,7 +448,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                             SuccessMessage = "Old category image deleted",
                             EntityType = "service-category-image",
                         };
-                        await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
+                        await DeleteOldImageInternalAsync(deleteConfig, cancellationToken);
                     }
 
                     var config = new FileUploadConfig
@@ -452,13 +460,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         EntityType = "service-category-image",
                     };
 
-                    var uploadResult = await _uploadOrchestrator.UploadFileAsync(
-                        imageFile,
-                        config,
-                        Guid.Empty,
-                        _logger,
-                        cancellationToken
-                    );
+                    var uploadResult = await UploadImageInternalAsync(imageFile, config, cancellationToken);
 
                     if (!uploadResult.Success)
                     {
