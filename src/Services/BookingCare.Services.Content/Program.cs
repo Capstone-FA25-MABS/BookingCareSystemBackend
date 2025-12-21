@@ -51,6 +51,7 @@ builder.Services.AddScoped<IBlogCategoryRepository, BlogCategoryRepository>();
 builder.Services.AddScoped<IHospitalFaqService, HospitalFaqService>();
 builder.Services.AddScoped<IBlogService, BlogService>();
 builder.Services.AddScoped<IBlogCategoryService, BlogCategoryService>();
+builder.Services.AddScoped<DatabaseInitializationService>();
 
 // gRPC
 builder.Services.AddGrpc();
@@ -68,39 +69,11 @@ var app = builder.Build();
 // HTTP pipeline
 app.UseCommonSwaggerUI("Content");
 
-// Initialize database: apply migrations if present, otherwise EnsureCreated (dev-friendly)
+// Initialize database using DatabaseInitializationService
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ContentDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-    try
-    {
-        try
-        {
-            await dbContext.Database.MigrateAsync();
-            logger.LogInformation("Database migrations applied successfully");
-        }
-        catch (InvalidOperationException)
-        {
-            // No migrations found, use EnsureCreated (only creates if doesn't exist)
-            var canConnect = await dbContext.Database.CanConnectAsync();
-            if (!canConnect)
-            {
-                await dbContext.Database.EnsureCreatedAsync();
-                logger.LogInformation("Database created successfully (no migrations found, using EnsureCreated)");
-            }
-            else
-            {
-                logger.LogInformation("Database already exists (no migrations found)");
-            }
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error initializing database");
-        throw;
-    }
+    var databaseInitializationService = scope.ServiceProvider.GetRequiredService<DatabaseInitializationService>();
+    await databaseInitializationService.InitializeAsync();
 }
 
 app.UseGlobalExceptionHandling();
