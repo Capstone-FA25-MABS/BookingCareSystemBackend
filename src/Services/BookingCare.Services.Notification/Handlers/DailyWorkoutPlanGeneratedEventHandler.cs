@@ -1,5 +1,4 @@
 using BookingCare.Services.Notification.Services.Interfaces;
-using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.EventBus.Events;
@@ -9,22 +8,19 @@ namespace BookingCare.Services.Notification.Handlers;
 
 /// <summary>
 /// Event handler for daily workout plan generated notifications
-/// Sends both email and in-app notification
-/// NOTE: Email sending requires user email to be passed in the event
+/// Creates in-app notification only (email is sent via NotificationSendEvent)
+/// Pattern matches AppointmentBookingSuccessNotificationEventHandler
 /// </summary>
 public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<DailyWorkoutPlanGeneratedEvent>
 {
     private readonly IEventBus _eventBus;
-    private readonly EmailService _emailService;
     private readonly ILogger<DailyWorkoutPlanGeneratedEventHandler> _logger;
 
     public DailyWorkoutPlanGeneratedEventHandler(
         IEventBus eventBus,
-        EmailService emailService,
         ILogger<DailyWorkoutPlanGeneratedEventHandler> logger)
     {
         _eventBus = eventBus;
-        _emailService = emailService;
         _logger = logger;
     }
 
@@ -36,9 +32,6 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
 
         try
         {
-            // Send email notification first
-            await SendWorkoutPlanEmailAsync(@event, cancellationToken);
-
             // Create in-app notification event
             var userName = !string.IsNullOrEmpty(@event.UserFullName) ? @event.UserFullName : "bạn";
             var notificationEvent = new CreateInAppNotificationEvent
@@ -63,7 +56,7 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
                     ActionUrl = "/user/profile?tab=notifications&category=workout",
                     Icon = "isax isax-activity",
                     Priority = NotificationPriority.Normal,
-                    ExpirationDays = 1
+                    ExpirationDays = 7
                 }
             };
 
@@ -73,6 +66,31 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
             _logger.LogInformation(
                 "[NotificationService] Successfully processed workout plan notification - UserId: {UserId}, WorkoutPlanId: {WorkoutPlanId}",
                 @event.UserId, @event.WorkoutPlanId);
+
+            // Send email notification via NotificationSendEvent (matches appointment pattern)
+            if (!string.IsNullOrEmpty(@event.UserEmail))
+            {
+                var emailEvent = new NotificationSendEvent
+                {
+                    UserId = @event.UserId,
+                    Title = "💪 Kế hoạch tập luyện hôm nay",
+                    Message = BuildWorkoutPlanEmailContent(@event, userName),
+                    Type = "email",
+                    Data = new Dictionary<string, object>
+                    {
+                        ["email"] = @event.UserEmail,
+                        ["subject"] = "💪 Kế hoạch tập luyện hôm nay",
+                        ["html"] = true
+                    },
+                    ScheduledAt = DateTime.UtcNow
+                };
+
+                await _eventBus.PublishAsync(emailEvent, null, cancellationToken);
+
+                _logger.LogInformation(
+                    "[NotificationService] Published email notification event for UserId: {UserId}",
+                    @event.UserId);
+            }
         }
         catch (Exception ex)
         {
@@ -84,37 +102,61 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
         }
     }
 
-    private async Task SendWorkoutPlanEmailAsync(
-        DailyWorkoutPlanGeneratedEvent @event,
-        CancellationToken cancellationToken)
+    private static string BuildWorkoutPlanEmailContent(DailyWorkoutPlanGeneratedEvent @event, string userName)
     {
-        try
-        {
-            if (string.IsNullOrEmpty(@event.UserEmail))
-            {
-                _logger.LogWarning("User email not found in event for UserId: {UserId}", @event.UserId);
-                return;
-            }
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .stats {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        .stat-item {{ display: inline-block; margin: 10px 20px; }}
+        .stat-value {{ font-size: 24px; font-weight: bold; color: #f5576c; }}
+        .stat-label {{ font-size: 14px; color: #666; }}
+        .button {{ display: inline-block; padding: 12px 30px; background: #f5576c; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h1>💪 Kế hoạch tập luyện hôm nay</h1>
+        </div>
+        <div class=""content"">
+            <p>Chào {userName},</p>
+            <p>Kế hoạch tập luyện <strong>{@event.WorkoutType}</strong> cho ngày <strong>{@event.Date:dd/MM/yyyy}</strong> đã được tạo thành công!</p>
+            
+            <div class=""stats"">
+                <div class=""stat-item"">
+                    <div class=""stat-value"">{@event.ExerciseCount}</div>
+                    <div class=""stat-label"">Bài tập</div>
+                </div>
+                <div class=""stat-item"">
+                    <div class=""stat-value"">{@event.DurationMinutes}</div>
+                    <div class=""stat-label"">Phút</div>
+                </div>
+                <div class=""stat-item"">
+                    <div class=""stat-value"">{@event.EstimatedCaloriesBurned}</div>
+                    <div class=""stat-label"">Calories đốt cháy</div>
+                </div>
+            </div>
 
-            var emailContent = NutritionEmailTemplate.BuildWorkoutPlanEmail(@event);
+            <p>Hãy bắt đầu tập luyện để đạt được mục tiêu sức khỏe của bạn!</p>
+            
+            <p style=""text-align: center;"">
+                <a href=""http://localhost:3000/nutrition/dashboard"" class=""button"">Xem kế hoạch</a>
+            </p>
 
-            await _emailService.SendEmailAsync(
-                @event.UserEmail,
-                "💪 Kế hoạch tập luyện hôm nay",
-                emailContent,
-                isHtml: true,
-                cancellationToken
-            );
-
-            _logger.LogInformation(
-                "Sent workout plan email to {Email} for UserId: {UserId}",
-                @event.UserEmail, @event.UserId
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send workout plan email for UserId: {UserId}", @event.UserId);
-            // Don't throw - email failure shouldn't break notification flow
-        }
+            <p style=""color: #666; font-size: 12px; margin-top: 30px;"">
+                Đây là email tự động từ hệ thống Medcure. Vui lòng không trả lời email này.
+            </p>
+        </div>
+    </div>
+</body>
+</html>";
     }
 }
