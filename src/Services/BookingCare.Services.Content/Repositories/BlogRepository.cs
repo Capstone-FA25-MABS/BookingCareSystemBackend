@@ -58,10 +58,19 @@ public class BlogRepository : IBlogRepository
 
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
-            query = query.Where(b =>
-                b.TitleVi.Contains(filter.Keyword) ||
-                (b.TitleEn != null && b.TitleEn.Contains(filter.Keyword)) ||
-                b.ContentVi.Contains(filter.Keyword));
+            if (filter.TitleOnly.HasValue && filter.TitleOnly.Value)
+            {
+                query = query.Where(b =>
+                    b.TitleVi.Contains(filter.Keyword) ||
+                    (b.TitleEn != null && b.TitleEn.Contains(filter.Keyword)));
+            }
+            else
+            {
+                query = query.Where(b =>
+                    b.TitleVi.Contains(filter.Keyword) ||
+                    (b.TitleEn != null && b.TitleEn.Contains(filter.Keyword)) ||
+                    b.ContentVi.Contains(filter.Keyword));
+            }
         }
 
         var page = filter.Page <= 0 ? 1 : filter.Page;

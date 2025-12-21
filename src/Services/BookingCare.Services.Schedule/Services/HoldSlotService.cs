@@ -266,7 +266,7 @@ public class HoldSlotService : BaseService, IHoldSlotService
 
             // Check current held count for this slot
             var currentHeldCount = await GetSpecialtyHeldCountAsync(
-                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, Guid.Empty);
+                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
 
             // Check if capacity is exceeded
             if (currentHeldCount >= request.MaxCapacity)

@@ -5,6 +5,8 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BookingCare.Shared.FileUpload.Services;
+using BookingCare.Shared.FileUpload.Models;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
 {
@@ -15,12 +17,14 @@ namespace BookingCare.Services.ServiceMedical.Controllers
     public class ServiceCategoriesController : ControllerBase
     {
         private readonly IServiceMedicalService _serviceMedicalService;
+        private readonly FileUploadOrchestrator _uploadOrchestrator;
         private readonly ILogger<ServiceCategoriesController> _logger;
         private readonly IMapper _mapper;
 
-        public ServiceCategoriesController(IServiceMedicalService serviceMedicalService, ILogger<ServiceCategoriesController> logger, IMapper mapper)
+        public ServiceCategoriesController(IServiceMedicalService serviceMedicalService, FileUploadOrchestrator uploadOrchestrator, ILogger<ServiceCategoriesController> logger, IMapper mapper)
         {
             _serviceMedicalService = serviceMedicalService;
+            _uploadOrchestrator = uploadOrchestrator;
             _logger = logger;
             _mapper = mapper;
         }
@@ -41,6 +45,20 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                 Service = "ServiceMedical - ServiceCategories",
                 Timestamp = DateTime.UtcNow
             });
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private async Task<FileUploadOrchestratorResult> UploadImageInternalAsync(IFormFile imageFile, FileUploadConfig config, CancellationToken cancellationToken)
+        {
+            return await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
+        }
+
+        private async Task<FileDeletionOrchestratorResult> DeleteOldImageInternalAsync(FileDeletionConfig deleteConfig, CancellationToken cancellationToken)
+        {
+            return await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
         }
 
         #endregion
@@ -330,6 +348,138 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all service categories with details");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Create a new service category with image upload (Admin only)
+        /// </summary>
+        [HttpPost("upload-image")]
+        [Authorize(Policy = "Role:Admin")]
+        public async Task<ActionResult<ServiceCategoryResponse>> CreateServiceCategoryWithImage(
+            [FromForm] CreateServiceCategoryRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                    return BadRequest(new { error = "Invalid request data", errors = errors });
+                }
+
+                if (imageFile != null)
+                {
+                    var config = new FileUploadConfig
+                    {
+                        AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                        MaxSizeInMB = 5,
+                        Folder = "service-categories/images",
+                        SuccessMessage = "Service category image uploaded successfully",
+                        EntityType = "service-category-image",
+                    };
+
+                    var uploadResult = await UploadImageInternalAsync(imageFile, config, cancellationToken);
+
+                    if (!uploadResult.Success)
+                    {
+                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                    }
+
+                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                }
+
+                var result = await _serviceMedicalService.CreateServiceCategoryAsync(request);
+                return CreatedAtAction(nameof(GetServiceCategory), new { id = result.Id }, result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating service category with image");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Update service category with image upload (Admin only)
+        /// </summary>
+        [HttpPut("{id}/upload-image")]
+        [Authorize(Policy = "Role:Admin")]
+        public async Task<ActionResult<ServiceCategoryResponse>> UpdateServiceCategoryWithImage(
+            Guid id,
+            [FromForm] UpdateServiceCategoryRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                    return BadRequest(new { error = "Invalid request data", errors = errors });
+                }
+
+                if (id != request.Id)
+                {
+                    return BadRequest(new { error = "ID mismatch" });
+                }
+
+                // Get current category to determine HospitalId if needed
+                var current = await _serviceMedicalService.GetServiceCategoryByIdAsync(id);
+                if (current == null)
+                {
+                    return NotFound(new { error = $"Service category with ID {id} not found" });
+                }
+
+                if (imageFile != null)
+                {
+                    // Delete old image if exists
+                    if (!string.IsNullOrEmpty(current.ImageUrl))
+                    {
+                        var deleteConfig = new FileDeletionConfig
+                        {
+                            FileUrl = current.ImageUrl,
+                            ExpectedFolder = "service-categories",
+                            SuccessMessage = "Old category image deleted",
+                            EntityType = "service-category-image",
+                        };
+                        await DeleteOldImageInternalAsync(deleteConfig, cancellationToken);
+                    }
+
+                    var config = new FileUploadConfig
+                    {
+                        AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                        MaxSizeInMB = 5,
+                        Folder = "service-categories/images",
+                        SuccessMessage = "Service category image uploaded successfully",
+                        EntityType = "service-category-image",
+                    };
+
+                    var uploadResult = await UploadImageInternalAsync(imageFile, config, cancellationToken);
+
+                    if (!uploadResult.Success)
+                    {
+                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                    }
+
+                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                }
+
+                var result = await _serviceMedicalService.UpdateServiceCategoryAsync(request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating service category with image: {Id}", id);
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
