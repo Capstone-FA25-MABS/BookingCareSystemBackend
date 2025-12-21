@@ -39,6 +39,9 @@ builder.Services.AddSingleton<DatabaseInitializationService>();
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);
 
+// Add controllers with common configuration
+builder.Services.AddControllers();
+
 // Register Event Handlers
 builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncFailedEventHandler>();
 builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncCompletedEventHandler>();
