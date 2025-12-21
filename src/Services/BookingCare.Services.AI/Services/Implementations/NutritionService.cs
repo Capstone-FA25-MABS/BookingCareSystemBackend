@@ -7,6 +7,8 @@ using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Services.User.Protos;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -23,6 +25,7 @@ public class NutritionService : INutritionService
     private readonly PexelsApiHelper _pexelsApiHelper;
     private readonly ServiceGroqConfiguration _nutritionConfig;
     private readonly UserService.UserServiceClient _userServiceClient;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<NutritionService> _logger;
 
     public NutritionService(
@@ -32,6 +35,7 @@ public class NutritionService : INutritionService
         PexelsApiHelper pexelsApiHelper,
         IOptions<GroqServicesConfiguration> groqServicesConfig,
         UserService.UserServiceClient userServiceClient,
+        IEventBus eventBus,
         ILogger<NutritionService> logger)
     {
         _context = context;
@@ -40,6 +44,7 @@ public class NutritionService : INutritionService
         _pexelsApiHelper = pexelsApiHelper;
         _nutritionConfig = groqServicesConfig.Value.NutritionService;
         _userServiceClient = userServiceClient;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -162,18 +167,35 @@ public class NutritionService : INutritionService
         var existingWorkoutPlan = await _context.WorkoutPlans
             .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == today, cancellationToken);
 
+        MealPlanDto? mealPlan = null;
+        WorkoutPlanDto? workoutPlan = null;
+
         // Generate meal plan if not exists
         if (existingMealPlan == null)
         {
             _logger.LogInformation("Generating meal plan for today for UserId: {UserId}", userId);
-            await GenerateDailyMealPlanAsync(userId, today, cancellationToken);
+            mealPlan = await GenerateDailyMealPlanAsync(userId, today, cancellationToken);
+        }
+        else
+        {
+            mealPlan = MapMealPlanToDto(existingMealPlan);
         }
 
         // Generate workout plan if not exists
         if (existingWorkoutPlan == null)
         {
             _logger.LogInformation("Generating workout plan for today for UserId: {UserId}", userId);
-            await GenerateDailyWorkoutPlanAsync(userId, today, cancellationToken);
+            workoutPlan = await GenerateDailyWorkoutPlanAsync(userId, today, cancellationToken);
+        }
+        else
+        {
+            workoutPlan = MapWorkoutPlanToDto(existingWorkoutPlan);
+        }
+
+        // Publish notification events for newly created plans
+        if (mealPlan != null && workoutPlan != null)
+        {
+            PublishNotificationEvents(userId, mealPlan, workoutPlan);
         }
 
         _logger.LogInformation("Immediate plans generation completed for UserId: {UserId}", userId);
@@ -1329,6 +1351,73 @@ LƯU Ý QUAN TRỌNG:
         }
 
         return totalItems > 0 ? (decimal)completedItems / totalItems * 100 : 0;
+    }
+
+    /// <summary>
+    /// Publish notification events for meal and workout plans
+    /// </summary>
+    private async void PublishNotificationEvents(Guid userId, MealPlanDto mealPlan, WorkoutPlanDto workoutPlan)
+    {
+        try
+        {
+            // Get user info for email notification
+            string? userEmail = null;
+            string? userFullName = null;
+            try
+            {
+                var userRequest = new GetUserByAccountIdRequest { AccountId = userId.ToString() };
+                var userResponse = await _userServiceClient.GetUserByAccountIdAsync(userRequest);
+                if (userResponse != null)
+                {
+                    userEmail = userResponse.Email;
+                    userFullName = userResponse.FullName;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get user info for UserId: {UserId}", userId);
+            }
+
+            // Publish meal plan event
+            var mealPlanEvent = new DailyMealPlanGeneratedEvent
+            {
+                UserId = userId,
+                UserEmail = userEmail,
+                UserFullName = userFullName,
+                MealPlanId = mealPlan.Id,
+                Date = mealPlan.Date,
+                TotalCalories = mealPlan.TotalCalories,
+                TotalProteinG = mealPlan.TotalProteinG,
+                TotalCarbsG = mealPlan.TotalCarbsG,
+                TotalFatG = mealPlan.TotalFatG,
+                MealCount = mealPlan.Meals.Count,
+                GeneratedAt = DateTime.UtcNow
+            };
+            _eventBus.PublishAsync(mealPlanEvent);
+
+            // Publish workout plan event
+            var workoutPlanEvent = new DailyWorkoutPlanGeneratedEvent
+            {
+                UserId = userId,
+                UserEmail = userEmail,
+                UserFullName = userFullName,
+                WorkoutPlanId = workoutPlan.Id,
+                Date = workoutPlan.Date,
+                WorkoutType = workoutPlan.WorkoutType,
+                DurationMinutes = workoutPlan.DurationMinutes,
+                EstimatedCaloriesBurned = workoutPlan.EstimatedCaloriesBurned,
+                ExerciseCount = workoutPlan.Exercises.Count,
+                GeneratedAt = DateTime.UtcNow
+            };
+            _eventBus.PublishAsync(workoutPlanEvent);
+
+            _logger.LogInformation("Published nutrition notification events for UserId: {UserId}", userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish notification events for UserId: {UserId}", userId);
+            // Don't throw - notification failure shouldn't break plan generation
+        }
     }
 
     #endregion
