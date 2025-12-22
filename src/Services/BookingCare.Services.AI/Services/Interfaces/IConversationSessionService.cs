@@ -1,4 +1,6 @@
+using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Models.DTOs.Requests;
+using BookingCare.Services.AI.Models.Entities;
 using System.Diagnostics.CodeAnalysis;
 
 namespace BookingCare.Services.AI.Services.Interfaces;
@@ -8,6 +10,11 @@ namespace BookingCare.Services.AI.Services.Interfaces;
 /// </summary>
 public interface IConversationSessionService
 {
+    /// <summary>
+    /// Create a new conversation session with specified type
+    /// </summary>
+    Task<CreateSessionResponse> CreateSessionAsync(CreateSessionRequest request, Guid userId);
+
     /// <summary>
     /// Get or create a conversation session (requires authenticated user)
     /// </summary>
@@ -39,7 +46,7 @@ public interface IConversationSessionService
     /// <summary>
     /// Get all conversation sessions for a user (requires authenticated user)
     /// </summary>
-    Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid userId);
+    Task<List<SessionSummaryDto>> GetUserSessionsAsync(Guid userId);
 
     /// <summary>
     /// Delete a conversation session (requires authenticated user and ownership verification)
@@ -50,4 +57,24 @@ public interface IConversationSessionService
     /// Check if a lab result has already been uploaded in this session
     /// </summary>
     Task<bool> CheckIfLabResultExistsAsync(Guid sessionId);
+
+    /// <summary>
+    /// Get conversation session by ID
+    /// </summary>
+    Task<ConversationSessionEntity?> GetSessionByIdAsync(Guid sessionId);
+
+    /// <summary>
+    /// Validate conversation type for session
+    /// </summary>
+    Task<bool> ValidateConversationTypeAsync(Guid sessionId, ConversationType expectedType);
+
+    /// <summary>
+    /// Check if file has been uploaded in this session
+    /// </summary>
+    Task<bool> HasFileUploadedAsync(Guid sessionId);
+
+    /// <summary>
+    /// Increment file upload count for session
+    /// </summary>
+    Task IncrementFileUploadCountAsync(Guid sessionId);
 }

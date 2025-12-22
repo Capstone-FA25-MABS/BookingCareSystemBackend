@@ -317,7 +317,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         var entities = await _sessionService.GetUserSessionsAsync(userId);
         return entities.Select(e => new SessionSummary
         {
-            SessionId = e.Id, // SessionSummaryEntity uses Id, not SessionId
+            SessionId = e.SessionId, // SessionSummaryDto uses SessionId
             UserId = e.UserId,
             Title = e.Title,
             LastMessage = e.LastMessage,

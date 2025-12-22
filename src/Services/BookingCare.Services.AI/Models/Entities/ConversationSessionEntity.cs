@@ -1,6 +1,16 @@
 namespace BookingCare.Services.AI.Models.Entities;
 
 /// <summary>
+/// Conversation type enum
+/// </summary>
+public enum ConversationType
+{
+    SymptomAnalysis,
+    LabResultAnalysis,
+    MedicalImageAnalysis
+}
+
+/// <summary>
 /// Entity model for conversation sessions
 /// </summary>
 public class ConversationSessionEntity
@@ -16,6 +26,16 @@ public class ConversationSessionEntity
     /// Conversation title (extracted from first user message)
     /// </summary>
     public string? Title { get; set; }
+
+    /// <summary>
+    /// Type of conversation (symptom analysis, lab result, medical image)
+    /// </summary>
+    public ConversationType ConversationType { get; set; } = ConversationType.SymptomAnalysis;
+
+    /// <summary>
+    /// Number of files uploaded in this conversation (for file analysis types only)
+    /// </summary>
+    public int FileUploadCount { get; set; } = 0;
 
     /// <summary>
     /// Conversation history stored as JSON
@@ -47,4 +67,5 @@ public class SessionSummaryEntity
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public int MessageCount { get; set; }
+    public ConversationType ConversationType { get; set; } = ConversationType.SymptomAnalysis;
 }

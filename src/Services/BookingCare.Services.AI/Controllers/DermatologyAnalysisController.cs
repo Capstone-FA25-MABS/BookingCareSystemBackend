@@ -1,5 +1,6 @@
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
+using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
@@ -19,13 +20,16 @@ namespace BookingCare.Services.AI.Controllers;
 public class DermatologyAnalysisController : BaseApiController
 {
     private readonly IDermatologyAnalysisService _dermatologyService;
+    private readonly IConversationSessionService _conversationSessionService;
     private readonly ILogger<DermatologyAnalysisController> _logger;
 
     public DermatologyAnalysisController(
         IDermatologyAnalysisService dermatologyService,
+        IConversationSessionService conversationSessionService,
         ILogger<DermatologyAnalysisController> logger)
     {
         _dermatologyService = dermatologyService;
+        _conversationSessionService = conversationSessionService;
         _logger = logger;
     }
 
@@ -78,15 +82,35 @@ public class DermatologyAnalysisController : BaseApiController
             }
 
             // Validate file size (max 15MB for dermatology images)
-            // Typical smartphone images are 2-5MB, but we allow up to 15MB for high-quality medical images
             const long maxFileSize = 15 * 1024 * 1024; // 15MB
             if (file.Length > maxFileSize)
             {
-                return BadRequest(new { error = "File size exceeds 15MB limit" });
+                return BadRequest(new
+                {
+                    error = $"File size exceeds maximum allowed size of {maxFileSize / (1024 * 1024)}MB"
+                });
             }
 
-            // Get authenticated user ID from JWT claims using JwtHelper
+            // Get authenticated user ID from JWT claims
             var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Validate conversation type if session exists
+            if (sessionId.HasValue)
+            {
+                var isValid = await _conversationSessionService.ValidateConversationTypeAsync(
+                    sessionId.Value,
+                    ConversationType.MedicalImageAnalysis);
+
+                if (!isValid)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Cuộc trò chuyện này không hỗ trợ phân tích hình ảnh y tế. Vui lòng tạo cuộc trò chuyện mới.",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
 
             // Build location context
             LocationContext? location = null;
