@@ -234,7 +234,7 @@ public class AuthService : BaseService, IAuthService
         }
 
         // Set MustChangePassword flag for Doctor accounts (password is auto-generated)
-        if (role == Role.DOCTOR)
+        if (role == Role.DOCTOR || role == Role.STAFF)
         {
             account.MustChangePassword = true;
             account.PhoneNumber = null;

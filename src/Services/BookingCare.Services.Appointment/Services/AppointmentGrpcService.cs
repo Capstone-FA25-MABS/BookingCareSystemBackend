@@ -56,6 +56,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                     RescheduleToken = string.Empty,
                     HospitalId = string.Empty,
                     SpecialtyId = string.Empty,
+                    AppointmentType = string.Empty,
                 };
             }
 
@@ -77,6 +78,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                     RescheduleToken = string.Empty,
                     HospitalId = string.Empty,
                     SpecialtyId = string.Empty,
+                    AppointmentType = string.Empty,
                 };
             }
 
@@ -86,6 +88,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             var rescheduleToken = appointmentEntity.RescheduleToken ?? string.Empty;
             var hospitalId = appointmentEntity.HospitalId?.ToString() ?? string.Empty;
             var specialtyId = appointmentEntity.SpecialtyId?.ToString() ?? string.Empty;
+            var appointmentType = appointmentEntity.AppointmentType.ToString() ?? string.Empty;
 
             _logger.LogInformation(
                 "[AppointmentGrpcService] Successfully retrieved doctorId {DoctorId} for appointment: {AppointmentId}",
@@ -102,6 +105,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                 RescheduleToken = rescheduleToken,
                 HospitalId = hospitalId,
                 SpecialtyId = specialtyId,
+                AppointmentType = appointmentType,
             };
         }
         catch (Exception ex)
@@ -120,6 +124,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                 RescheduleToken = string.Empty,
                 HospitalId = string.Empty,
                 SpecialtyId = string.Empty,
+                AppointmentType = string.Empty,
             };
         }
     }
@@ -136,8 +141,9 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
         try
         {
             _logger.LogInformation(
-                "[AppointmentGrpcService] ConfirmAppointment called with ID: {AppointmentId}",
-                request.AppointmentId
+                "[AppointmentGrpcService] ConfirmAppointment called with ID: {AppointmentId}, NewAmount: {NewAmount}",
+                request.AppointmentId,
+                request.NewAmount
             );
 
             if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
@@ -210,6 +216,17 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             appointment.IsRescheduled = true;
             appointment.RescheduleToken = null; // Clear token after use
             appointment.RescheduleTokenExpiry = null;
+
+            // Update amount if new_amount is provided (greater than 0)
+            if (request.NewAmount > 0)
+            {
+                appointment.Amount = appointment.AppointmentType == AppointmentType.IN_PERSON ? (decimal)(request.NewAmount / 0.3) : (decimal)request.NewAmount;
+                _logger.LogInformation(
+                    "[AppointmentGrpcService] Updated appointment amount to {NewAmount} for appointment: {AppointmentId}",
+                    request.NewAmount,
+                    appointmentId
+                );
+            }
 
             // Update appointment status to CONFIRMED
             appointment.Status = AppointmentStatus.CONFIRMED;
