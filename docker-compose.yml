@@ -797,12 +797,6 @@ services:
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
       - RabbitMQ__VirtualHost=${RABBITMQ_DEFAULT_VHOST}
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
-      - EmailSettings__Host=${EMAIL_HOST}
-      - EmailSettings__Port=${EMAIL_PORT}
-      - EmailSettings__UserName=${EMAIL_USERNAME}
-      - EmailSettings__Password=${EMAIL_PASSWORD}
-      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL}
-      - Fcm__ServiceAccountJson=${FCM_SERVICE_ACCOUNT_JSON}
       - OtpVerification__Secret=${OTP_VERIFICATION_SECRET}
       - AuthService__GrpcUrl=http://auth-service:6103
     networks:
