@@ -249,7 +249,8 @@ public class AppointmentService : BaseService, IAppointmentService
     /// </summary>
     private async Task UpdateAppointmentWithNewDoctorAsync(
         AppointmentEntity appointment,
-        ChooseNewDoctorRequest request
+        ChooseNewDoctorRequest request,
+        decimal? newAmount = null
     )
     {
         appointment.DoctorId = request.NewDoctorId;
@@ -266,12 +267,19 @@ public class AppointmentService : BaseService, IAppointmentService
         appointment.RescheduleToken = null; // Clear token after use
         appointment.RescheduleTokenExpiry = null;
 
+        // Update amount if new price provided
+        if (newAmount.HasValue)
+        {
+            appointment.Amount = newAmount.Value;
+        }
+
         await _appointmentRepository.UpdateAppointmentAsync(appointment);
         LogInfo(
-            "Updated appointment {AppointmentId} with new doctor {DoctorId}",
+            "Updated appointment {AppointmentId} with new doctor {DoctorId}, Amount: {Amount}",
             null,
             appointment.Id,
-            request.NewDoctorId
+            request.NewDoctorId,
+            appointment.Amount ?? 0m
         );
     }
 
@@ -279,7 +287,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// Confirm staff-assigned doctor (Option 2 flow)
     /// Similar to UpdateAppointmentWithNewDoctorAsync but also clears soft reservation fields
     /// </summary>
-    private async Task ConfirmNewDoctorAsync(AppointmentEntity appointment)
+    private async Task ConfirmNewDoctorAsync(AppointmentEntity appointment, decimal? newAmount = null)
     {
         appointment.DoctorId = appointment.AssignedDoctorId;
         appointment.AssignedDoctorId = null; // Clear soft reservation
@@ -292,6 +300,12 @@ public class AppointmentService : BaseService, IAppointmentService
         appointment.IsRescheduled = true;
         appointment.RescheduleToken = null; // Clear token after use
         appointment.RescheduleTokenExpiry = null;
+
+        // Update amount if new price provided
+        if (newAmount.HasValue)
+        {
+            appointment.Amount = newAmount.Value;
+        }
 
         await _appointmentRepository.UpdateAppointmentAsync(appointment);
     }
@@ -705,15 +719,15 @@ public class AppointmentService : BaseService, IAppointmentService
 
                 var response = _mapper.Map<AppointmentResponse>(appointment);
 
-                // Get payment information via gRPC
-                response.ConsultationFees = await GetPaymentAmountAsync(appointment.Id);
-
                 // Enrich appointment with external data for patient view
                 await EnrichAppointmentsWithExternalDataAsync(
                     new List<AppointmentResponse> { response },
                     new List<AppointmentEntity> { appointment },
                     Role.PATIENT
                 );
+
+                // Get payment information via gRPC
+                response.ConsultationFees = await GetPaymentAmountAsync(appointment.Id);
 
                 LogInfo("Appointment found and enriched: {AppointmentId}", null, appointment.Id);
                 return response;
@@ -1332,6 +1346,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Build redirect URL based on reschedule action
+    /// Includes appointmentType for proper filtering on frontend (TELEHEALTH vs IN_PERSON)
     /// </summary>
     private string BuildRescheduleRedirectUrl(
         AppointmentEntity appointment,
@@ -1340,10 +1355,11 @@ public class AppointmentService : BaseService, IAppointmentService
     )
     {
         var frontendBaseUrl = _frontendConfig.BaseUrl;
+        var appointmentTypeParam = $"&appointmentType={appointment.AppointmentType}";
 
         return rescheduleAction == PendingRescheduleAction.SAME_DOCTOR
-            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}&doctorId={appointment.DoctorId}"
-            : $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}";
+            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}&doctorId={appointment.DoctorId}{appointmentTypeParam}"
+            : $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}{appointmentTypeParam}";
     }
 
     /// <summary>
@@ -1577,8 +1593,11 @@ public class AppointmentService : BaseService, IAppointmentService
         var frontendBaseUrl = _frontendConfig.BaseUrl;
         var generateAll = selectedOptions == null;
 
+        // Include appointmentType in URLs for proper filtering on frontend
+        var appointmentTypeParam = $"&appointmentType={appointment.AppointmentType}";
+
         var sameDoctorUrl = ShouldGenerateSameDoctorUrl(appointment, generateAll, selectedOptions)
-            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}"
+            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}{appointmentTypeParam}"
             : null;
 
         var confirmDoctorUrl = ShouldGenerateConfirmDoctorUrl(
@@ -1586,12 +1605,13 @@ public class AppointmentService : BaseService, IAppointmentService
             generateAll,
             selectedOptions
         )
-            ? $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={token}&newDoctorId={appointment.AssignedDoctorId}"
+            ? $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={token}&newDoctorId={appointment.AssignedDoctorId}{appointmentTypeParam}"
             : null;
 
+        // Include appointmentType for DoctorList filtering (TELEHEALTH vs IN_PERSON)
         var chooseNewDoctorUrl =
             (generateAll || selectedOptions!.EnableDoctorSelection)
-                ? $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}"
+                ? $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}{appointmentTypeParam}"
                 : null;
 
         // Only generate refund URL if appointment has payment record
@@ -2571,6 +2591,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Calculate price difference between original and new doctor
+    /// Business rule: TELEHEALTH = 100% payment, IN_PERSON = 30% deposit
     /// </summary>
     private async Task<(
         decimal originalPrice,
@@ -2582,11 +2603,13 @@ public class AppointmentService : BaseService, IAppointmentService
         var originalPrice = await GetAppointmentPaymentAmountAsync(appointment.Id);
 
         // Get new doctor price from Doctor Service
-        var newPrice = await GetDoctorPriceAsync(request.DoctorPriceId);
+        var newDoctorFullPrice = await GetDoctorPriceAsync(request.DoctorPriceId);
 
-        var priceDifference = (newPrice * (decimal)0.3) - originalPrice;
+        // Business rule: TELEHEALTH = 100% payment, IN_PERSON = 30% deposit
+        var depositRate = appointment.AppointmentType == AppointmentType.TELEHEALTH ? 1.0m : 0.3m;
+        var priceDifference = (newDoctorFullPrice * depositRate) - originalPrice;
 
-        return (originalPrice, newPrice, priceDifference);
+        return (originalPrice, newDoctorFullPrice, priceDifference);
     }
 
     /// <summary>
@@ -2661,26 +2684,28 @@ public class AppointmentService : BaseService, IAppointmentService
     )
     {
         var refundAmount = Math.Abs(priceDifference);
+        var newAmount = appointment.AppointmentType == AppointmentType.IN_PERSON ? newPrice * 0.3m : newPrice; // 30% deposit of new price
 
         // Get doctor information for refund history transparency
         var originalDoctorInfo = await GetDoctorBasicInfoAsync(appointment.DoctorId!.Value);
         var newDoctorInfo = await GetDoctorBasicInfoAsync(request.NewDoctorId);
         var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
 
-        // Update appointment with new doctor (use appropriate method based on IsStaffAssigned)
+        // Update appointment with new doctor and new amount (use appropriate method based on IsStaffAssigned)
         if (request.IsStaffAssigned)
         {
-            await ConfirmNewDoctorAsync(appointment);
+            await ConfirmNewDoctorAsync(appointment, newPrice);
             LogInfo(
-                "Confirmed staff-assigned doctor {DoctorId} with refund for appointment {AppointmentId}",
+                "Confirmed staff-assigned doctor {DoctorId} with refund for appointment {AppointmentId}, NewAmount: {NewAmount}",
                 null,
                 request.NewDoctorId,
-                appointment.Id
+                appointment.Id,
+                newPrice
             );
         }
         else
         {
-            await UpdateAppointmentWithNewDoctorAsync(appointment, request);
+            await UpdateAppointmentWithNewDoctorAsync(appointment, request, newPrice);
         }
 
         // Publish immediate refund event with doctor change context
@@ -2688,7 +2713,7 @@ public class AppointmentService : BaseService, IAppointmentService
             appointment,
             refundAmount,
             originalPrice,
-            (newPrice * (decimal)0.3),
+            newAmount,
             originalDoctorInfo,
             newDoctorInfo,
             patientInfo

@@ -43,16 +43,30 @@ public static class PaymentFrontendHelper
         return $"{baseUrl}/booking/{doctorId}";
     }
 
-    public static string BuildConfirmNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid appointmentId, string rescheduleToken, Guid assignedDoctorId)
+    public static string BuildConfirmNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid appointmentId, string rescheduleToken, Guid assignedDoctorId, string? appointmentType = null)
     {
         var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
-        return $"{baseUrl}/booking/confirm-doctor/{appointmentId}?token={rescheduleToken}&newDoctorId={assignedDoctorId}";
+        var url = $"{baseUrl}/booking/confirm-doctor/{appointmentId}?token={rescheduleToken}&newDoctorId={assignedDoctorId}";
+
+        if (!string.IsNullOrEmpty(appointmentType))
+        {
+            url += $"&appointmentType={appointmentType}";
+        }
+
+        return url;
     }
 
-    public static string BuildChooseNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid? hosptitalId, Guid? specialtyId, Guid appointmentId, string rescheduleToken)
+    public static string BuildChooseNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid? hospitalId, Guid? specialtyId, Guid appointmentId, string rescheduleToken, string? appointmentType = null)
     {
         var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
-        return $"{baseUrl}/doctors?hospitalId={hosptitalId}&specialtyId={specialtyId}&rescheduleFor={appointmentId}&token={rescheduleToken}";
+        var url = $"{baseUrl}/doctors?hospitalId={hospitalId}&specialtyId={specialtyId}&rescheduleFor={appointmentId}&token={rescheduleToken}";
+
+        if (!string.IsNullOrEmpty(appointmentType))
+        {
+            url += $"&appointmentType={appointmentType}";
+        }
+
+        return url;
     }
 
     /// <summary>
@@ -60,8 +74,8 @@ public static class PaymentFrontendHelper
     /// </summary>
     /// <param name="appointmentClient">Appointment gRPC client</param>
     /// <param name="appointmentId">Appointment ID</param>
-    /// <returns>Doctor ID if found, null otherwise</returns>
-    public static async Task<(Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId)> GetDoctorIdFromAppointmentAsync(
+    /// <returns>Doctor ID, pending doctor ID, assigned doctor ID, reschedule token, hospital ID, specialty ID, and appointment type if found, null otherwise</returns>
+    public static async Task<(Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId, string? appointmentType)> GetDoctorIdFromAppointmentAsync(
     AppointmentService.AppointmentServiceClient appointmentClient,
     Guid appointmentId)
     {
@@ -76,7 +90,7 @@ public static class PaymentFrontendHelper
 
             if (!response.Success)
             {
-                return (null, null, null, null, null, null);
+                return (null, null, null, null, null, null, null);
             }
 
             return ParseAppointmentResponse(response);
@@ -85,20 +99,20 @@ public static class PaymentFrontendHelper
         {
             System.Diagnostics.Debug.WriteLine(
                 $"[PaymentFrontendHelper] gRPC call failed - Status: {rpcEx.StatusCode}, Detail: {rpcEx.Status.Detail}, AppointmentId: {appointmentId}");
-            return (null, null, null, null, null, null);
+            return (null, null, null, null, null, null, null);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine(
                 $"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
-            return (null, null, null, null, null, null);
+            return (null, null, null, null, null, null, null);
         }
     }
 
     /// <summary>
     /// Parse appointment response to extract IDs
     /// </summary>
-    private static (Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId) ParseAppointmentResponse(
+    private static (Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId, string? appointmentType) ParseAppointmentResponse(
         GetDoctorIdByAppointmentIdResponse response)
     {
         var doctorId = TryParseGuid(response.DoctorId);
@@ -107,8 +121,9 @@ public static class PaymentFrontendHelper
         var hospitalId = TryParseGuid(response.HospitalId);
         var specialtyId = TryParseGuid(response.SpecialtyId);
         var rescheduleToken = response.RescheduleToken;
+        var appointmentType = response.AppointmentType;
 
-        return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId);
+        return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId, appointmentType);
     }
 
     /// <summary>

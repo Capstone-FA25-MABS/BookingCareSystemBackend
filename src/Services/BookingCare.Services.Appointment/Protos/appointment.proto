@@ -46,12 +46,14 @@ message GetDoctorIdByAppointmentIdResponse {
     string reschedule_token = 5;
     string hospital_id = 6;
     string specialty_id = 7;
+    string appointment_type = 8; // TELEHEALTH or IN_PERSON
 }
 
 // Confirm appointment request message
 message ConfirmAppointmentRequest {
     string appointment_id = 1;
     bool staff_assigned = 2;
+    double new_amount = 3;  // New amount to update (0 means no change)
 }
 
 // Confirm appointment response message
