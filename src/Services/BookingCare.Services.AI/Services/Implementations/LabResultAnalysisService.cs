@@ -11,6 +11,7 @@ using Docnet.Core;
 using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
 using Tesseract;
+using SkiaSharp;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
@@ -57,7 +58,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public async Task<LabResultAnalysisResponse> AnalyzeLabResultAsync(
         IFormFile file,
         LocationContext? location,
@@ -141,7 +141,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -156,7 +155,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfAsync(IFormFile file)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -186,7 +184,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfStreamAsync(Stream stream)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -216,80 +213,97 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfFileAsync(string pdfPath)
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            _logger.LogError("PDF OCR image conversion is only supported on Windows due to System.Drawing dependency.");
-            throw new PlatformNotSupportedException("Phân tích PDF hiện chỉ được hỗ trợ trên môi trường Windows.");
-        }
-
         var extractedTexts = new List<string>();
 
-        // Load PDF using Docnet
-        using var docReader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(1920, 1920));
-
-        // Process each page (limit to first 10 pages)
-        var pageCount = Math.Min(docReader.GetPageCount(), 10);
-        _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
-
-        for (int i = 0; i < pageCount; i++)
+        try
         {
-            using var pageReader = docReader.GetPageReader(i);
-            var rawBytes = pageReader.GetImage();
-            var width = pageReader.GetPageWidth();
-            var height = pageReader.GetPageHeight();
+            // Load PDF using Docnet (cross-platform)
+            using var docReader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(1920, 1920));
 
-            // Save page as PNG
-            var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
+            // Process each page (limit to first 10 pages)
+            var pageCount = Math.Min(docReader.GetPageCount(), 10);
+            _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
 
-            try
+            for (int i = 0; i < pageCount; i++)
             {
-                // Convert raw bytes to PNG
-                using (var image = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                using var pageReader = docReader.GetPageReader(i);
+                var rawBytes = pageReader.GetImage();
+                var width = pageReader.GetPageWidth();
+                var height = pageReader.GetPageHeight();
+
+                // Save page as PNG
+                var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
+
+                try
                 {
-                    var bitmapData = image.LockBits(
-                        new System.Drawing.Rectangle(0, 0, width, height),
-                        System.Drawing.Imaging.ImageLockMode.WriteOnly,
-                        image.PixelFormat);
+                    // Convert raw bytes to PNG using SkiaSharp (cross-platform)
+                    var imageInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
 
-                    System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
-                    image.UnlockBits(bitmapData);
+                    using (var bitmap = new SKBitmap(imageInfo))
+                    {
+                        // Copy raw bytes to SKBitmap
+                        var pixelPtr = bitmap.GetPixels();
+                        System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, pixelPtr, rawBytes.Length);
 
-                    image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
+                        // Save as PNG
+                        using (var image = SKImage.FromBitmap(bitmap))
+                        using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+                        using (var stream = File.OpenWrite(tempImagePath))
+                        {
+                            data.SaveTo(stream);
+                        }
+                    }
+
+                    // OCR the image
+                    using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
+                    using var img = Pix.LoadFromFile(tempImagePath);
+                    using var ocrPage = engine.Process(img);
+
+                    var pageText = ocrPage.GetText();
+                    if (!string.IsNullOrWhiteSpace(pageText))
+                    {
+                        extractedTexts.Add(pageText);
+                        _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
+                    }
                 }
-
-                // OCR the image
-                using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
-                using var img = Pix.LoadFromFile(tempImagePath);
-                using var ocrPage = engine.Process(img);
-
-                var pageText = ocrPage.GetText();
-                if (!string.IsNullOrWhiteSpace(pageText))
+                catch (Exception ex)
                 {
-                    extractedTexts.Add(pageText);
-                    _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
+                    _logger.LogError(ex, "Error processing page {PageNumber}", i + 1);
+                    // Continue with next page instead of failing completely
+                }
+                finally
+                {
+                    if (File.Exists(tempImagePath))
+                    {
+                        try
+                        {
+                            File.Delete(tempImagePath);
+                        }
+                        catch
+                        {
+                            // Ignore cleanup errors
+                        }
+                    }
                 }
             }
-            finally
+
+            var combinedText = string.Join("\n\n", extractedTexts);
+
+            if (string.IsNullOrWhiteSpace(combinedText))
             {
-                if (File.Exists(tempImagePath))
-                {
-                    File.Delete(tempImagePath);
-                }
+                throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
             }
+
+            _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
+            return combinedText;
         }
-
-        var combinedText = string.Join("\n\n", extractedTexts);
-
-        if (string.IsNullOrWhiteSpace(combinedText))
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
+            _logger.LogError(ex, "Error extracting text from PDF file");
+            throw new InvalidOperationException($"Lỗi khi trích xuất văn bản từ PDF: {ex.Message}", ex);
         }
-
-        _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
-        return combinedText;
     }
 
     private async Task<string> ExtractTextFromImageStreamAsync(Stream stream, string fileName)
@@ -651,7 +665,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private static string BuildAnalysisMessage(LabResultAnalysisResponse response)
     {
         var aiMessage = new StringBuilder();
-        aiMessage.AppendLine("KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:");
+        aiMessage.AppendLine("Kết quả phân tích xét nghiệm:");
         aiMessage.AppendLine();
 
         AppendNormalIndicators(aiMessage, response.NormalIndicators);
