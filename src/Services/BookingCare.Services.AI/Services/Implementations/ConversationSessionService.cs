@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using BookingCare.Services.AI.Data;
 using BookingCare.Services.AI.Exceptions;
+using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Models.DTOs.Requests;
+using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +24,156 @@ public class ConversationSessionService : IConversationSessionService
     {
         _context = context;
         _logger = logger;
+    }
+
+    public async Task<CreateSessionResponse> CreateSessionAsync(CreateSessionRequest request, Guid userId)
+    {
+        try
+        {
+            var sessionId = Guid.NewGuid();
+
+            // Generate title from initial message or use default based on conversation type
+            var title = GenerateSessionTitle(request.ConversationType, request.InitialMessage);
+
+            var newSession = new ConversationSessionEntity
+            {
+                Id = sessionId,
+                UserId = userId,
+                ConversationType = request.ConversationType,
+                Title = title,
+                ConversationHistory = "[]"
+            };
+
+            _context.ConversationSessions.Add(newSession);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Created new conversation session: {SessionId} for user: {UserId} with type: {ConversationType}",
+                sessionId, userId, request.ConversationType);
+
+            return new CreateSessionResponse
+            {
+                SessionId = sessionId,
+                ConversationType = request.ConversationType,
+                CreatedAt = newSession.CreatedAt,
+                Title = title
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating session: {Message}", ex.Message);
+            throw new ConversationSessionException(
+                $"Failed to create conversation session: {ex.Message}",
+                null,
+                userId,
+                ex);
+        }
+    }
+
+    private string GenerateSessionTitle(ConversationType conversationType, string? initialMessage)
+    {
+        if (!string.IsNullOrWhiteSpace(initialMessage))
+        {
+            return initialMessage.Length > 50
+                ? initialMessage.Substring(0, 50) + "..."
+                : initialMessage;
+        }
+
+        return conversationType switch
+        {
+            ConversationType.SymptomAnalysis => "Phân tích triệu chứng",
+            ConversationType.LabResultAnalysis => "Phân tích xét nghiệm",
+            ConversationType.MedicalImageAnalysis => "Phân tích hình ảnh y tế",
+            _ => "Cuộc trò chuyện mới"
+        };
+    }
+
+    public async Task<ConversationSessionEntity?> GetSessionByIdAsync(Guid sessionId)
+    {
+        try
+        {
+            return await _context.ConversationSessions
+                .FirstOrDefaultAsync(s => s.Id == sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting session {SessionId}", sessionId);
+            return null;
+        }
+    }
+
+    public async Task<bool> ValidateConversationTypeAsync(Guid sessionId, ConversationType expectedType)
+    {
+        try
+        {
+            var session = await GetSessionByIdAsync(sessionId);
+            if (session == null)
+            {
+                _logger.LogWarning("Session {SessionId} not found for validation", sessionId);
+                return false;
+            }
+
+            var isValid = session.ConversationType == expectedType;
+
+            if (!isValid)
+            {
+                _logger.LogWarning(
+                    "Conversation type mismatch for session {SessionId}. Expected: {Expected}, Actual: {Actual}",
+                    sessionId, expectedType, session.ConversationType);
+            }
+
+            return isValid;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating conversation type for session {SessionId}", sessionId);
+            return false;
+        }
+    }
+
+    public async Task<bool> HasFileUploadedAsync(Guid sessionId)
+    {
+        try
+        {
+            var session = await GetSessionByIdAsync(sessionId);
+            if (session == null)
+            {
+                _logger.LogWarning("Session {SessionId} not found for file upload check", sessionId);
+                return false;
+            }
+
+            return session.FileUploadCount > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking file upload for session {SessionId}", sessionId);
+            return false;
+        }
+    }
+
+    public async Task IncrementFileUploadCountAsync(Guid sessionId)
+    {
+        try
+        {
+            var session = await _context.ConversationSessions
+                .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+            if (session == null)
+            {
+                _logger.LogWarning("Session {SessionId} not found for incrementing file upload count", sessionId);
+                return;
+            }
+
+            session.FileUploadCount++;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Incremented file upload count for session {SessionId} to {Count}",
+                sessionId, session.FileUploadCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error incrementing file upload count for session {SessionId}", sessionId);
+        }
     }
 
     public async Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid userId, LocationContext? location)
@@ -384,7 +536,7 @@ public class ConversationSessionService : IConversationSessionService
         return CreateSessionSummary(session, title, lastMessage, messageCount);
     }
 
-    public async Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid userId)
+    public async Task<List<SessionSummaryDto>> GetUserSessionsAsync(Guid userId)
     {
         try
         {
@@ -397,11 +549,11 @@ public class ConversationSessionService : IConversationSessionService
                 .Take(50) // Limit to last 50 sessions
                 .ToListAsync();
 
-            var summaries = new List<Models.Entities.SessionSummaryEntity>();
+            var summaries = new List<SessionSummaryDto>();
 
             foreach (var session in sessions)
             {
-                var summary = ProcessSessionForSummary(session);
+                var summary = ProcessSessionForSummaryDto(session);
                 summaries.Add(summary);
             }
 
@@ -416,6 +568,37 @@ public class ConversationSessionService : IConversationSessionService
                 userId,
                 ex);
         }
+    }
+
+    private SessionSummaryDto ProcessSessionForSummaryDto(ConversationSessionEntity session)
+    {
+        string? title = null;
+        string? lastMessage = null;
+        int messageCount = 0;
+
+        if (!string.IsNullOrWhiteSpace(session.ConversationHistory))
+        {
+            var history = ParseConversationHistory(session.ConversationHistory);
+
+            if (history != null && history.Any())
+            {
+                messageCount = history.Count;
+                title = ExtractSessionTitle(session, history);
+                lastMessage = ExtractLastMessage(history);
+            }
+        }
+
+        return new SessionSummaryDto
+        {
+            SessionId = session.Id,
+            UserId = session.UserId,
+            Title = title ?? session.Title ?? "Cuộc trò chuyện mới",
+            LastMessage = lastMessage,
+            CreatedAt = NormalizeToUtc(session.CreatedAt),
+            UpdatedAt = NormalizeToUtc(session.UpdatedAt),
+            MessageCount = messageCount,
+            ConversationType = session.ConversationType
+        };
     }
 
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId)

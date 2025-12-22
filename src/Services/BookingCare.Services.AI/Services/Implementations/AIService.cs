@@ -163,9 +163,9 @@ public class AIService : IAIService
 
         // Diagnosis section (slightly different format)
         AppendSectionHeader(promptBuilder, "CHẨN ĐOÁN SƠ BỘ");
-        promptBuilder.AppendLine("**Chẩn đoán:** [Ghi rõ chẩn đoán của bác sĩ]");
+        promptBuilder.AppendLine("Chẩn đoán: [Ghi rõ chẩn đoán của bác sĩ]");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**Đánh giá:** [Mức độ nghiêm trọng, tiên lượng]");
+        promptBuilder.AppendLine("Đánh giá: [Mức độ nghiêm trọng, tiên lượng]");
         AppendSectionSeparator(promptBuilder);
 
         // Treatment section with subsections

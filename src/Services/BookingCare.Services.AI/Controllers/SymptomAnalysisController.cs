@@ -1,5 +1,7 @@
+using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
+using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Services.AI.Exceptions;
 using BookingCare.Shared.Common.Controllers;
@@ -18,13 +20,16 @@ namespace BookingCare.Services.AI.Controllers;
 public class SymptomAnalysisController : BaseApiController
 {
     private readonly ISymptomAnalysisService _symptomAnalysisService;
+    private readonly IConversationSessionService _conversationSessionService;
     private readonly ILogger<SymptomAnalysisController> _logger;
 
     public SymptomAnalysisController(
         ISymptomAnalysisService symptomAnalysisService,
+        IConversationSessionService conversationSessionService,
         ILogger<SymptomAnalysisController> logger)
     {
         _symptomAnalysisService = symptomAnalysisService;
+        _conversationSessionService = conversationSessionService;
         _logger = logger;
     }
 
@@ -44,6 +49,78 @@ public class SymptomAnalysisController : BaseApiController
             Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
             Timestamp = DateTime.UtcNow
         });
+    }
+
+    /// <summary>
+    /// Create a new conversation session (requires Patient authentication)
+    /// </summary>
+    /// <param name="request">Create session request with conversation type</param>
+    /// <returns>Created session details</returns>
+    /// <response code="200">Session created successfully</response>
+    /// <response code="400">Invalid request data</response>
+    /// <response code="401">Unauthorized - user must be authenticated</response>
+    /// <response code="500">Internal server error</response>
+    [HttpPost("sessions")]
+    [Authorize(Policy = "Role:Patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<CreateSessionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CreateSession([FromBody] CreateSessionRequest request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid request data",
+                    errors,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+
+            // Get authenticated user ID from JWT claims
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            _logger.LogInformation(
+                "Creating new session for user: {UserId} with type: {ConversationType}",
+                accountId, request.ConversationType);
+
+            var result = await _conversationSessionService.CreateSessionAsync(request, accountId);
+
+            _logger.LogInformation(
+                "Session created successfully: {SessionId} for user: {UserId}",
+                result.SessionId, accountId);
+
+            return Success(result, "Session created successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt to create session");
+            return Unauthorized(new
+            {
+                success = false,
+                message = "Unauthorized. Please login to continue.",
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating session: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = $"Failed to create session: {ex.Message}",
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>
@@ -86,6 +163,24 @@ public class SymptomAnalysisController : BaseApiController
 
             // Override request userId with authenticated user ID for security
             request.UserId = accountId;
+
+            // Validate conversation type if session exists
+            if (request.SessionId.HasValue)
+            {
+                var isValid = await _conversationSessionService.ValidateConversationTypeAsync(
+                    request.SessionId.Value,
+                    ConversationType.SymptomAnalysis);
+
+                if (!isValid)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Cuộc trò chuyện này không hỗ trợ phân tích triệu chứng. Vui lòng tạo cuộc trò chuyện mới.",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
 
             _logger.LogInformation("Analyzing symptoms for user: {UserId}, session: {SessionId}, message: {Message}",
                 accountId, request.SessionId, request.Message?.Substring(0, Math.Min(request.Message.Length, 50)));

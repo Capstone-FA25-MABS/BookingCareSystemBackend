@@ -1,5 +1,6 @@
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
+using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
@@ -19,13 +20,16 @@ namespace BookingCare.Services.AI.Controllers;
 public class LabResultAnalysisController : BaseApiController
 {
     private readonly ILabResultAnalysisService _labResultService;
+    private readonly IConversationSessionService _conversationSessionService;
     private readonly ILogger<LabResultAnalysisController> _logger;
 
     public LabResultAnalysisController(
         ILabResultAnalysisService labResultService,
+        IConversationSessionService conversationSessionService,
         ILogger<LabResultAnalysisController> logger)
     {
         _labResultService = labResultService;
+        _conversationSessionService = conversationSessionService;
         _logger = logger;
     }
 
@@ -78,6 +82,37 @@ public class LabResultAnalysisController : BaseApiController
             // Validate file size (10MB max for lab result images/PDFs)
             // Typical smartphone images are 2-5MB, PDF lab results are usually 1-5MB
             const long maxFileSize = 10 * 1024 * 1024; // 10MB
+
+            if (request.File.Length > maxFileSize)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "File không được vượt quá 10MB",
+                    timestamp = DateTime.UtcNow
+                });
+            }
+
+            // Get authenticated user ID from JWT claims
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Validate conversation type if session exists
+            if (request.SessionId.HasValue)
+            {
+                var isValid = await _conversationSessionService.ValidateConversationTypeAsync(
+                    request.SessionId.Value,
+                    ConversationType.LabResultAnalysis);
+
+                if (!isValid)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Cuộc trò chuyện này không hỗ trợ phân tích xét nghiệm. Vui lòng tạo cuộc trò chuyện mới.",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
             if (request.File.Length > maxFileSize)
             {
                 return BadRequest(new

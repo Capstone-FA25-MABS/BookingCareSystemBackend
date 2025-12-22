@@ -539,14 +539,14 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
         if (response.Diagnosis != null)
         {
-            messageBuilder.AppendLine($"**Chẩn đoán khả năng:** {response.Diagnosis.ConditionName}");
-            messageBuilder.AppendLine($"**Độ tin cậy:** {response.Diagnosis.Confidence:P0}");
+            messageBuilder.AppendLine($"Chẩn đoán khả năng: {response.Diagnosis.ConditionName}");
+            messageBuilder.AppendLine($"Độ tin cậy: {response.Diagnosis.Confidence:P0}");
             messageBuilder.AppendLine();
         }
 
         if (response.GeneralAdvice.Count > 0)
         {
-            messageBuilder.AppendLine("**Lời khuyên:**");
+            messageBuilder.AppendLine("Lời khuyên:");
             foreach (var advice in response.GeneralAdvice)
             {
                 messageBuilder.AppendLine($"- {advice}");
