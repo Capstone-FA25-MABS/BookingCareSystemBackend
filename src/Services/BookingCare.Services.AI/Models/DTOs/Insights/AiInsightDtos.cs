@@ -72,6 +72,77 @@ public class PatientSegmentStats
     public double ReturningPatientRate { get; set; }
 }
 
+/// <summary>
+/// Phân tích chi tiết lý do đặt lịch từ trường Reason
+/// </summary>
+public class ReasonAnalysis
+{
+    public string ReasonCategory { get; set; } = string.Empty; // Danh mục lý do (khám bệnh, tái khám, khám định kỳ, v.v.)
+    public int Count { get; set; }
+    public double Percentage { get; set; }
+    public List<string> CommonKeywords { get; set; } = new(); // Từ khóa phổ biến trong lý do
+}
+
+/// <summary>
+/// Phân tích triệu chứng từ trường Symptoms
+/// </summary>
+public class SymptomAnalysis
+{
+    public string SymptomCategory { get; set; } = string.Empty; // Danh mục triệu chứng
+    public int Count { get; set; }
+    public double Percentage { get; set; }
+    public List<string> CommonSymptoms { get; set; } = new(); // Triệu chứng phổ biến
+    public string? RelatedSpecialty { get; set; } // Chuyên khoa liên quan
+}
+
+/// <summary>
+/// Phân tích lịch hẹn bị dời/reschedule
+/// </summary>
+public class RescheduleInsight
+{
+    public int TotalRescheduled { get; set; }
+    public double RescheduleRate { get; set; }
+    public int RescheduledAndCompleted { get; set; }
+    public int RescheduledAndCancelled { get; set; }
+    public double RescheduledCompletionRate { get; set; }
+    public List<ReschedulePattern> Patterns { get; set; } = new();
+}
+
+/// <summary>
+/// Pattern của việc reschedule (theo bác sĩ, chuyên khoa, giờ)
+/// </summary>
+public class ReschedulePattern
+{
+    public string PatternType { get; set; } = string.Empty; // "by_doctor", "by_specialty", "by_time"
+    public string PatternValue { get; set; } = string.Empty; // Tên bác sĩ, chuyên khoa, hoặc khung giờ
+    public int RescheduleCount { get; set; }
+    public double RescheduleRate { get; set; }
+}
+
+/// <summary>
+/// Phân tích chi tiết lý do hủy lịch dựa trên Reason khi Status = CANCELLED
+/// </summary>
+public class DetailedCancellationAnalysis
+{
+    public List<CancellationReasonDetail> TopReasons { get; set; } = new();
+    public Dictionary<string, int> ReasonsByTimeSlot { get; set; } = new(); // Lý do hủy theo khung giờ
+    public Dictionary<string, int> ReasonsBySpecialty { get; set; } = new(); // Lý do hủy theo chuyên khoa
+    public int CancellationsWithReason { get; set; } // Số lượt hủy có ghi lý do
+    public int CancellationsWithoutReason { get; set; } // Số lượt hủy không ghi lý do
+}
+
+/// <summary>
+/// Chi tiết lý do hủy lịch
+/// </summary>
+public class CancellationReasonDetail
+{
+    public string ReasonCategory { get; set; } = string.Empty; // Danh mục lý do (bận việc, đổi ý, không liên lạc được, v.v.)
+    public int Count { get; set; }
+    public double Percentage { get; set; }
+    public List<string> CommonKeywords { get; set; } = new(); // Từ khóa phổ biến
+    public string? RecommendedAction { get; set; } // Hành động khuyến nghị dựa trên lý do này
+}
+
 public class FuturePrediction
 {
     public string Period { get; set; } = string.Empty; // "next_week", "next_month", "next_quarter"
@@ -130,6 +201,12 @@ public class AiInsightMetrics
     public List<SpecialtyStats> SpecialtyBreakdown { get; set; } = new();
     public CancellationInsight CancellationDetails { get; set; } = new();
     public PatientSegmentStats PatientSegments { get; set; } = new();
+
+    // NEW: Deep analytics from Appointment fields
+    public List<ReasonAnalysis> ReasonAnalyses { get; set; } = new(); // Phân tích từ trường Reason
+    public List<SymptomAnalysis> SymptomAnalyses { get; set; } = new(); // Phân tích từ trường Symptoms
+    public RescheduleInsight RescheduleInsight { get; set; } = new(); // Phân tích từ trường IsRescheduled
+    public DetailedCancellationAnalysis DetailedCancellationAnalysis { get; set; } = new(); // Phân tích chi tiết lý do hủy
 }
 
 public class AiInsightResponse
