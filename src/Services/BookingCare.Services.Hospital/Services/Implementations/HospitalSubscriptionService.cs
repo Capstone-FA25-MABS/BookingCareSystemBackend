@@ -441,6 +441,10 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             StartDate = now,
             EndDate = newSubscriptionEndDate,
             Status = SubscriptionStatus.ACTIVE,
+            SpecialtyCount = currentSubscription.SpecialtyCount,
+            AppointmentCount = currentSubscription.AppointmentCount,
+            ServiceCount = currentSubscription.ServiceCount,
+            DoctorCount = currentSubscription.DoctorCount,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -484,6 +488,18 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         if (newPlan.Status != Status.ACTIVE)
         {
             throw new HospitalOperationException("Target subscription plan is not active");
+        }
+
+        // Check tier downgrade first (regardless of billing cycle)
+        var currentTier = GetTierLevel(currentPlan.Name);
+        var newTier = GetTierLevel(newPlan.Name);
+
+        if (currentTier > newTier)
+        {
+            throw new HospitalOperationException(
+                $"Không thể chuyển từ \"{currentPlan.Name}\" xuống \"{newPlan.Name}\". "
+                    + "Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới."
+            );
         }
 
         var currentBillingCycleValue = GetBillingCycleValue(currentPlan.BillingCycle);
@@ -853,5 +869,23 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             "YEARLY" => "Năm",
             _ => "Tháng",
         };
+    }
+
+    private int GetTierLevel(string planName)
+    {
+        // Extract tier level from plan name for comparison
+        // Basic tier = 1, Advanced tier = 2, Professional tier = 3
+        if (string.IsNullOrWhiteSpace(planName))
+            return 0;
+
+        var lowerName = planName.ToLower();
+        if (lowerName.Contains("cơ bản") || lowerName.Contains("basic"))
+            return 1;
+        if (lowerName.Contains("nâng cao") || lowerName.Contains("advanced"))
+            return 2;
+        if (lowerName.Contains("chuyên nghiệp") || lowerName.Contains("professional"))
+            return 3;
+
+        return 0; // Unknown tier
     }
 }
