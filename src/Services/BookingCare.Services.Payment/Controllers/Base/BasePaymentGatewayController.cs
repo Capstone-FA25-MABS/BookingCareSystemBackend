@@ -446,7 +446,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
             assignedDoctorId,
             rescheduleToken,
             hospitalId,
-            specialtyId
+            specialtyId,
+            appointmentType
         ) = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
             AppointmentClient,
             appointmentId
@@ -474,7 +475,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
                     FrontendOptions,
                     appointmentId,
                     rescheduleToken!,
-                    assignedDoctorId.Value
+                    assignedDoctorId.Value,
+                    appointmentType
                 );
                 Logger.LogInformation(
                     "{Gateway} Callback #{RequestId} - Supplementary payment failed for staff-assigned doctor, redirecting to ConfirmNewDoctor: {RedirectUrl}",
@@ -491,7 +493,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
                     hospitalId,
                     specialtyId,
                     appointmentId,
-                    rescheduleToken!
+                    rescheduleToken!,
+                    appointmentType
                 );
                 Logger.LogInformation(
                     "{Gateway} Callback #{RequestId} - Supplementary payment failed for patient-chosen doctor, redirecting to DoctorList: {RedirectUrl}",
@@ -846,6 +849,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
             {
                 AppointmentId = appointmentId.ToString(),
                 StaffAssigned = staffAssigned,
+                NewAmount = (double)newTotalAmount,
             };
 
             var confirmResponse = await AppointmentClient.ConfirmAppointmentAsync(confirmRequest);
