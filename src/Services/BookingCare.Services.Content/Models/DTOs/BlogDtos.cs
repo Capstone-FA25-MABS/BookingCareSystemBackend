@@ -7,6 +7,11 @@ public record BlogSummaryDto
     public Guid Id { get; init; }
     public string TitleVi { get; init; } = string.Empty;
     public string? ThumbnailUrl { get; init; }
+    /// <summary>
+    /// Optional short summary/excerpt (plain text) for list views.
+    /// Backend will populate this from the full content (ContentVi) when returning lists.
+    /// </summary>
+    public string? Excerpt { get; init; }
     public string? Tag { get; init; }
     public string? Source { get; init; }
     public string? CreatedByName { get; init; }
