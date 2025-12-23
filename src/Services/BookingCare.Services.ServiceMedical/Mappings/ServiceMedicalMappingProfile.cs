@@ -48,7 +48,8 @@ namespace BookingCare.Services.ServiceMedical.Mappings
 
             CreateMap<CreateServiceRequest, ServiceEntity>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "INACTIVE"))
+                // New default: created services are ACTIVE by default unless explicitly set otherwise later
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "ACTIVE"))
                 .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore());
 
             CreateMap<UpdateServiceRequest, ServiceEntity>()

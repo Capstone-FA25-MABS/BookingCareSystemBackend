@@ -36,13 +36,21 @@ public class BlogService : IBlogService
         var (blogs, totalItems) = await _blogRepository.GetBlogsAsync(sanitizedFilter, cancellationToken);
         var summaries = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(blogs);
 
+        // Populate Excerpt for summaries using ContentVi (strip HTML + truncate)
+        var summariesWithExcerpt = summaries.Select(dto =>
+        {
+            var blog = blogs.First(b => b.Id == dto.Id);
+            var excerpt = CreateExcerpt(blog.ContentVi, maxChars: 150);
+            return dto with { Excerpt = excerpt };
+        }).ToList();
+
         // Batch load creator names
         var creatorNames = await GetCreatorNamesBatchAsync(
             blogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct().ToList(),
             cancellationToken);
 
         // Set CreatedByName for all summaries
-        var summariesWithCreatorNames = summaries.Select(dto =>
+        var summariesWithCreatorNames = summariesWithExcerpt.Select(dto =>
         {
             var blog = blogs.First(b => b.Id == dto.Id);
             var creatorName = blog.CreatedBy.HasValue &&
@@ -105,9 +113,9 @@ public class BlogService : IBlogService
 
         var entity = _mapper.Map<BlogEntity>(request);
         entity.CreatedBy = createdBy;
-        // Auto-approve newly created blogs (temporary): set status active and publish immediately if not specified
-        entity.Status = BlogStatus.Active;
-        if (!entity.PublishedAt.HasValue)
+        // Respect requested status (default is Pending); only set PublishedAt automatically when status is Active
+        entity.Status = request.Status;
+        if (entity.Status == BlogStatus.Active && !entity.PublishedAt.HasValue)
         {
             entity.PublishedAt = DateTime.UtcNow;
         }
@@ -142,10 +150,14 @@ public class BlogService : IBlogService
         existing.HeroImageUrl = request.HeroImageUrl;
         existing.Tag = request.Tag;
         existing.Source = request.Source;
-        // Auto-approve updates as well (temporary): force status to Active and set PublishedAt if missing
-        existing.Status = BlogStatus.Active;
+        // Apply requested status/update fields; do not force auto-approve
+        existing.Status = request.Status;
         existing.Featured = request.Featured;
-        existing.PublishedAt = request.PublishedAt ?? existing.PublishedAt ?? DateTime.UtcNow;
+        existing.PublishedAt = request.PublishedAt ?? existing.PublishedAt;
+        if (existing.Status == BlogStatus.Active && !existing.PublishedAt.HasValue)
+        {
+            existing.PublishedAt = DateTime.UtcNow;
+        }
 
         await _blogRepository.UpdateAsync(existing, cancellationToken);
 
@@ -263,7 +275,7 @@ public class BlogService : IBlogService
             ? name
             : null;
 
-        // Set CreatedByName for related blogs
+        // Set CreatedByName and Excerpt for related blogs
         var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
         {
             var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
@@ -271,7 +283,8 @@ public class BlogService : IBlogService
                                      creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
                 ? relatedName
                 : null;
-            return dto with { CreatedByName = relatedCreatorName };
+            var excerpt = CreateExcerpt(relatedBlog.ContentVi, maxChars: 120);
+            return dto with { CreatedByName = relatedCreatorName, Excerpt = excerpt };
         }).ToList();
 
         return blogDto with
@@ -316,6 +329,32 @@ public class BlogService : IBlogService
         }
 
         return result;
+    }
+
+    private static string CreateExcerpt(string? html, int maxChars = 150)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        // Strip HTML tags
+        var withoutTags = System.Text.RegularExpressions.Regex.Replace(html, "<.*?>", string.Empty);
+        // Normalize whitespace
+        var normalized = System.Text.RegularExpressions.Regex.Replace(withoutTags, "\\s+", " ").Trim();
+
+        if (normalized.Length <= maxChars)
+            return normalized;
+
+        // Truncate without cutting mid-word if possible
+        var truncated = normalized.Substring(0, maxChars).TrimEnd();
+        var lastSpace = truncated.LastIndexOf(' ');
+        if (lastSpace > Math.Max(20, maxChars - 30))
+        {
+            truncated = truncated.Substring(0, lastSpace);
+        }
+
+        return truncated + "...";
     }
 
     private static BlogFilterParameters SanitizeFilter(BlogFilterParameters filter)
