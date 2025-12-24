@@ -57,18 +57,18 @@ RUN apt-get update \
         libxcb1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Download Vietnamese and English language data if not available
+# Download Vietnamese and English language data (using faster tessdata for better performance)
 RUN apt-get update && \
     apt-get install -y --allow-unauthenticated wget && \
     mkdir -p /usr/share/tesseract-ocr/tessdata && \
     cd /usr/share/tesseract-ocr/tessdata && \
-    echo "Downloading Vietnamese traineddata..." && \
-    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/vie.traineddata -O vie.traineddata || \
-     wget -q https://github.com/tesseract-ocr/tessdata/raw/main/vie.traineddata -O vie.traineddata || \
+    echo "Downloading Vietnamese traineddata (fast version for better performance)..." && \
+    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/vie.traineddata -O vie.traineddata || \
+     wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/vie.traineddata -O vie.traineddata || \
      echo "Failed to download vie.traineddata") && \
-    echo "Downloading English traineddata..." && \
-    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O eng.traineddata || \
-     wget -q https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata -O eng.traineddata || \
+    echo "Downloading English traineddata (fast version for better performance)..." && \
+    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata -O eng.traineddata || \
+     wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/eng.traineddata -O eng.traineddata || \
      echo "Failed to download eng.traineddata") && \
     apt-get remove -y wget && \
     apt-get clean && \
