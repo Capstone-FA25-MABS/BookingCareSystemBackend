@@ -1,0 +1,468 @@
+using BookingCare.Services.Appointment.Protos;
+using BookingCare.Services.Hospital;
+using BookingCare.Services.Payment.Enums;
+using BookingCare.Services.Payment.Models.DTOs.Requests;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
+using BookingCare.Services.Payment.Models.Entities;
+using BookingCare.Services.Payment.Repositories.Interfaces;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Shared.Common.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace BookingCare.Services.Payment.Services.Implementations;
+
+/// <summary>
+/// Implementation of Hospital Payout Service
+/// </summary>
+public class HospitalPayoutService : IHospitalPayoutService
+{
+    private readonly IHospitalPayoutRepository _payoutRepository;
+    private readonly IPaymentRepository _paymentRepository;
+    private readonly IBankAccountRepository _bankAccountRepository;
+    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
+    private readonly AppointmentService.AppointmentServiceClient _appointmentGrpcClient;
+    private readonly ILogger<HospitalPayoutService> _logger;
+
+    public HospitalPayoutService(
+        IHospitalPayoutRepository payoutRepository,
+        IPaymentRepository paymentRepository,
+        IBankAccountRepository bankAccountRepository,
+        HospitalService.HospitalServiceClient hospitalGrpcClient,
+        AppointmentService.AppointmentServiceClient appointmentGrpcClient,
+        ILogger<HospitalPayoutService> logger
+    )
+    {
+        _payoutRepository = payoutRepository;
+        _paymentRepository = paymentRepository;
+        _bankAccountRepository = bankAccountRepository;
+        _hospitalGrpcClient = hospitalGrpcClient;
+        _appointmentGrpcClient = appointmentGrpcClient;
+        _logger = logger;
+    }
+
+    public async Task<PagedResult<HospitalPayoutResponse>> GetPayoutsAsync(PayoutQueryRequest query)
+    {
+        var pagedPayouts = await _payoutRepository.GetPayoutsAsync(query);
+
+        var responses = pagedPayouts.Items.Select(MapToResponse).ToList();
+
+        return new PagedResult<HospitalPayoutResponse>
+        {
+            Items = responses,
+            TotalCount = pagedPayouts.TotalCount,
+            PageNumber = pagedPayouts.PageNumber,
+            PageSize = pagedPayouts.PageSize,
+        };
+    }
+
+    public async Task<PayoutDetailsResponse> GetPayoutDetailsAsync(Guid payoutId)
+    {
+        var payout = await _payoutRepository.GetByIdAsync(payoutId);
+        if (payout == null)
+        {
+            throw new KeyNotFoundException($"Payout with ID {payoutId} not found");
+        }
+
+        var appointmentDetails = new List<PayoutAppointmentDetail>();
+        // NOTE: Appointment and user details will be fetched via gRPC in future implementation
+        // For now, return basic payout info without detailed appointment data
+
+        return new PayoutDetailsResponse
+        {
+            Payout = MapToResponse(payout),
+            Appointments = appointmentDetails,
+        };
+    }
+
+    public async Task<List<HospitalPayoutResponse>> GeneratePayoutsAsync(
+        GeneratePayoutsRequest request
+    )
+    {
+        var generatedPayouts = new List<HospitalPayoutEntity>();
+
+        // Hospital can only generate payout for themselves
+        var hospitalId = request.HospitalId;
+
+        // Check if payout already exists for this period
+        var exists = await _payoutRepository.ExistsForPeriodAsync(
+            hospitalId,
+            request.PeriodStartDate,
+            request.PeriodEndDate
+        );
+
+        if (exists)
+        {
+            throw new InvalidOperationException(
+                $"Payout already exists for period {request.PeriodStartDate:yyyy-MM-dd} to {request.PeriodEndDate:yyyy-MM-dd}"
+            );
+        }
+
+        // Get completed payments that haven't been paid out yet
+        var payments = await _paymentRepository.GetCompletedPaymentsByHospitalAndPeriodAsync(
+            hospitalId,
+            request.PeriodStartDate,
+            request.PeriodEndDate
+        );
+
+        // Filter out payments that have already been included in a payout
+        var unpaidPayments = payments.Where(p => p.HospitalPayoutId == null).ToList();
+
+        if (!unpaidPayments.Any())
+        {
+            throw new InvalidOperationException(
+                "No completed payments found for the specified period"
+            );
+        }
+
+        // Validate appointments are actually completed via AppointmentService
+        var appointmentIds = unpaidPayments
+            .Where(p => p.AppointmentId.HasValue)
+            .Select(p => p.AppointmentId!.Value.ToString())
+            .Distinct()
+            .ToList();
+
+        if (appointmentIds.Any())
+        {
+            var validationResult = await ValidateCompletedAppointmentsAsync(appointmentIds);
+
+            if (validationResult.TotalNonCompleted > 0)
+            {
+                _logger.LogWarning(
+                    "Found {NonCompletedCount} non-completed appointments out of {TotalCount}. Excluding them from payout.",
+                    validationResult.TotalNonCompleted,
+                    appointmentIds.Count
+                );
+
+                // Filter out payments for non-completed appointments
+                var completedAppointmentIds = validationResult.CompletedAppointmentIds.ToHashSet();
+                unpaidPayments = unpaidPayments
+                    .Where(p =>
+                        !p.AppointmentId.HasValue
+                        || completedAppointmentIds.Contains(p.AppointmentId.Value.ToString())
+                    )
+                    .ToList();
+            }
+        }
+
+        // Recalculate after filtering
+        if (!unpaidPayments.Any())
+        {
+            throw new InvalidOperationException(
+                "No completed appointments found for the specified period. Patient may have cancelled the appointments."
+            );
+        }
+
+        var totalAmount = unpaidPayments.Sum(p => p.Amount);
+        var appointmentCount = unpaidPayments.Count(p => p.AppointmentId.HasValue);
+        var paymentIds = unpaidPayments.Select(p => p.Id).ToList();
+
+        if (totalAmount <= 0 || appointmentCount == 0)
+        {
+            throw new InvalidOperationException(
+                "No valid completed payments found for the specified period"
+            );
+        }
+
+        // Get default bank account for hospital
+        var bankAccount = await _bankAccountRepository.GetDefaultByUserIdAsync(hospitalId);
+        if (bankAccount == null)
+        {
+            throw new InvalidOperationException(
+                "Hospital does not have a default bank account. Please add a bank account first."
+            );
+        }
+
+        // Use hospital name from request (sent from frontend)
+        var hospitalName = request.HospitalName;
+
+        // Create payout record with hospital name
+        var payout = new HospitalPayoutEntity
+        {
+            HospitalId = hospitalId,
+            HospitalName = hospitalName,
+            BankAccountId = bankAccount.Id,
+            PeriodStart = request.PeriodStartDate,
+            PeriodEnd = request.PeriodEndDate,
+            TotalAmount = totalAmount,
+            AppointmentCount = appointmentCount,
+            Status = PayoutStatus.PENDING,
+        };
+
+        var created = await _payoutRepository.CreateAsync(payout);
+
+        // Link all payments to this payout to prevent duplicate payouts
+        await LinkPaymentsToPayoutAsync(paymentIds, created.Id);
+
+        generatedPayouts.Add(created);
+
+        return generatedPayouts.Select(MapToResponse).ToList();
+    }
+
+    public async Task<HospitalPayoutResponse> MarkPayoutCompletedAsync(
+        Guid payoutId,
+        MarkPayoutCompletedRequest request,
+        Guid adminId
+    )
+    {
+        var payout = await _payoutRepository.GetByIdAsync(payoutId);
+        if (payout == null)
+        {
+            throw new KeyNotFoundException($"Payout with ID {payoutId} not found");
+        }
+
+        if (payout.Status == PayoutStatus.COMPLETED)
+        {
+            throw new InvalidOperationException("Payout is already marked as completed");
+        }
+
+        // Verify that all payments associated with this payout are still valid
+        var paymentsCount = await _paymentRepository.CountPaymentsByPayoutIdAsync(payoutId);
+        if (paymentsCount == 0)
+        {
+            _logger.LogWarning(
+                "Payout {PayoutId} has no associated payments. This may indicate a data integrity issue.",
+                payoutId
+            );
+        }
+
+        payout.Status = PayoutStatus.COMPLETED;
+        payout.ProcessedByAdminId = adminId;
+        payout.ProcessedAt = DateTime.UtcNow;
+        payout.Notes = request.Notes;
+
+        var updated = await _payoutRepository.UpdateAsync(payout);
+
+        _logger.LogInformation(
+            "Payout {PayoutId} marked as completed by admin {AdminId}. Associated payments: {Count}",
+            payoutId,
+            adminId,
+            paymentsCount
+        );
+
+        return MapToResponse(updated);
+    }
+
+    public async Task<PayoutStatisticsResponse> GetStatisticsAsync()
+    {
+        var (pendingCount, pendingAmount, completedCount, completedAmount) =
+            await _payoutRepository.GetStatisticsAsync();
+
+        // NOTE: TotalHospitals count can be implemented when needed
+        // Current implementation focuses on payout counts and amounts
+
+        return new PayoutStatisticsResponse
+        {
+            TotalPendingPayouts = pendingCount,
+            TotalPendingAmount = pendingAmount,
+            TotalCompletedPayouts = completedCount,
+            TotalCompletedAmount = completedAmount,
+            TotalHospitals = 0,
+        };
+    }
+
+    public async Task<List<PendingHospitalInfoResponse>> GetHospitalsWithPendingPayoutsAsync(
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        // Get all hospital IDs with completed payments in period
+        var hospitalIds = await GetHospitalsWithCompletedPaymentsAsync(periodStart, periodEnd);
+
+        // Fetch hospital names via gRPC
+        var hospitalNames = await GetHospitalNamesAsync(hospitalIds);
+
+        var pendingHospitals = new List<PendingHospitalInfoResponse>();
+
+        foreach (var hospitalId in hospitalIds)
+        {
+            // Calculate payout amount and appointment count (excluding already paid out payments)
+            var (totalAmount, appointmentCount, _) = await CalculatePayoutAmountAsync(
+                hospitalId,
+                periodStart,
+                periodEnd
+            );
+
+            // Check if hospital has bank account
+            var bankAccount = await _bankAccountRepository.GetFirstByHospitalIdAsync(hospitalId);
+            var hasBankAccount = bankAccount != null;
+
+            // Get hospital name from fetched data
+            var hospitalName = hospitalNames.TryGetValue(hospitalId, out var name)
+                ? name
+                : "Unknown Hospital";
+
+            // Create response
+            pendingHospitals.Add(
+                new PendingHospitalInfoResponse
+                {
+                    HospitalId = hospitalId,
+                    HospitalName = hospitalName,
+                    TotalAmount = totalAmount,
+                    AppointmentCount = appointmentCount,
+                    HasBankAccount = hasBankAccount,
+                }
+            );
+        }
+
+        return pendingHospitals;
+    }
+
+    // Private helper methods
+
+    private async Task<List<Guid>> GetHospitalsWithCompletedPaymentsAsync(
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        // Get all completed appointment payments in period
+        // Group by hospital ID
+        var hospitalIds = await _paymentRepository.GetHospitalIdsWithCompletedPaymentsAsync(
+            periodStart,
+            periodEnd
+        );
+        return hospitalIds;
+    }
+
+    private async Task<(
+        decimal TotalAmount,
+        int AppointmentCount,
+        List<Guid> PaymentIds
+    )> CalculatePayoutAmountAsync(Guid hospitalId, DateTime periodStart, DateTime periodEnd)
+    {
+        // Get completed payments that haven't been paid out yet (HospitalPayoutId is null)
+        var payments = await _paymentRepository.GetCompletedPaymentsByHospitalAndPeriodAsync(
+            hospitalId,
+            periodStart,
+            periodEnd
+        );
+
+        // Filter out payments that have already been included in a payout
+        var unpaidPayments = payments.Where(p => p.HospitalPayoutId == null).ToList();
+
+        var totalAmount = unpaidPayments.Sum(p => p.Amount);
+        var appointmentCount = unpaidPayments.Count(p => p.AppointmentId.HasValue);
+        var paymentIds = unpaidPayments.Select(p => p.Id).ToList();
+
+        return (totalAmount, appointmentCount, paymentIds);
+    }
+
+    private HospitalPayoutResponse MapToResponse(HospitalPayoutEntity entity)
+    {
+        return new HospitalPayoutResponse
+        {
+            Id = entity.Id,
+            HospitalId = entity.HospitalId,
+            HospitalName = entity.HospitalName,
+            BankAccountId = entity.BankAccountId,
+            BankAccount = new BankAccountInfo
+            {
+                Id = entity.BankAccount.Id,
+                BankCode = entity.BankAccount.BankCode,
+                BankName = entity.BankAccount.BankName,
+                AccountNumber = entity.BankAccount.AccountNumber,
+                AccountName = entity.BankAccount.AccountName,
+            },
+            PeriodStart = entity.PeriodStart,
+            PeriodEnd = entity.PeriodEnd,
+            TotalAmount = entity.TotalAmount,
+            AppointmentCount = entity.AppointmentCount,
+            Status = entity.Status,
+            ProcessedByAdminId = entity.ProcessedByAdminId,
+            ProcessedByAdminName = string.Empty, // NOTE: Admin name will be fetched from User service via gRPC in future implementation
+            ProcessedAt = entity.ProcessedAt,
+            Notes = entity.Notes,
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt,
+        };
+    }
+
+    /// <summary>
+    /// Validate that appointments are actually completed via AppointmentService
+    /// </summary>
+    private async Task<ValidateCompletedAppointmentsResponse> ValidateCompletedAppointmentsAsync(
+        List<string> appointmentIds
+    )
+    {
+        try
+        {
+            var request = new ValidateCompletedAppointmentsRequest();
+            request.AppointmentIds.AddRange(appointmentIds);
+
+            var response = await _appointmentGrpcClient.ValidateCompletedAppointmentsAsync(request);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error validating completed appointments via gRPC. AppointmentIds: {AppointmentIds}",
+                string.Join(", ", appointmentIds)
+            );
+
+            // If validation fails, assume none are completed for safety
+            return new ValidateCompletedAppointmentsResponse
+            {
+                TotalCompleted = 0,
+                TotalNonCompleted = appointmentIds.Count,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Fetch hospital names via gRPC - optimized for performance
+    /// </summary>
+    private async Task<Dictionary<Guid, string>> GetHospitalNamesAsync(List<Guid> hospitalIds)
+    {
+        if (hospitalIds == null || !hospitalIds.Any())
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        try
+        {
+            var request = new GetHospitalNamesRequest();
+            request.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
+
+            var response = await _hospitalGrpcClient.GetHospitalNamesAsync(request);
+
+            return response.Hospitals.ToDictionary(h => Guid.Parse(h.Id), h => h.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error fetching hospital names via gRPC for {Count} hospitals",
+                hospitalIds.Count
+            );
+            // Return empty dictionary on error - will show "Unknown Hospital"
+            return new Dictionary<Guid, string>();
+        }
+    }
+
+    /// <summary>
+    /// Link payments to a payout to prevent duplicate payouts
+    /// </summary>
+    private async Task LinkPaymentsToPayoutAsync(List<Guid> paymentIds, Guid payoutId)
+    {
+        if (paymentIds == null || !paymentIds.Any())
+        {
+            return;
+        }
+
+        foreach (var paymentId in paymentIds)
+        {
+            var payment = await _paymentRepository.GetByIdAsync(paymentId);
+            if (payment != null)
+            {
+                payment.HospitalPayoutId = payoutId;
+                await _paymentRepository.UpdateAsync(payment);
+            }
+        }
+
+        _logger.LogInformation(
+            "Linked {Count} payments to payout {PayoutId}",
+            paymentIds.Count,
+            payoutId
+        );
+    }
+}

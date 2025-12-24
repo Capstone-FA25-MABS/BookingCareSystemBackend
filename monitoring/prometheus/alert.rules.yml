@@ -1,0 +1,203 @@
+groups:
+  - name: BookingCare Service Alerts
+    interval: 30s
+    rules:
+      # Service Down Alerts
+      - alert: ServiceDown
+        expr: up{job=~"bookingcare-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: service
+        annotations:
+          summary: "BookingCare {{ $labels.job }} is DOWN"
+          description: "Service {{ $labels.job }} at {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: |
+          (sum(rate(http_requests_total{status=~"5.."}[5m])) by (job) / 
+           sum(rate(http_requests_total[5m])) by (job)) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+
+      # High Response Latency
+      - alert: HighResponseLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High response latency on {{ $labels.job }}"
+          description: "95th percentile latency is {{ $value | humanizeDuration }}"
+
+      # Slow Request Detection
+      - alert: SlowRequests
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow requests detected"
+          description: "99th percentile request duration is {{ $value | humanizeDuration }}"
+
+  - name: Infrastructure Alerts
+    interval: 30s
+    rules:
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      # Very High Memory Usage
+      - alert: CriticalMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: |
+          (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      # Very High CPU Usage
+      - alert: CriticalCPUUsage
+        expr: |
+          (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical CPU usage"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      # High Disk Usage
+      - alert: HighDiskUsage
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|vfat|iso9660"} / 
+           node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|vfat|iso9660"}) < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk usage"
+          description: "Disk {{ $labels.device }} is {{ $value | humanizePercentage }} full"
+
+      # Critical Disk Usage
+      - alert: CriticalDiskUsage
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|vfat|iso9660"} / 
+           node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|vfat|iso9660"}) < 0.05
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical disk usage"
+          description: "Disk {{ $labels.device }} is {{ $value | humanizePercentage }} full"
+
+  - name: Database Alerts
+    interval: 30s
+    rules:
+      # Redis Connection Issues
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance at {{ $labels.instance }} is not responding"
+
+      # High Redis Memory Usage
+      - alert: RedisHighMemory
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis memory usage is {{ $value | humanize }}%"
+
+      # MongoDB Connection Issues
+      - alert: MongoDBDown
+        expr: mongodb_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB instance at {{ $labels.instance }} is not responding"
+
+  - name: Message Queue Alerts
+    interval: 30s
+    rules:
+      # RabbitMQ Down
+      - alert: RabbitMQDown
+        expr: rabbitmq_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: messaging
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ instance at {{ $labels.instance }} is not responding"
+
+      # RabbitMQ Queue Depth Growing
+      - alert: RabbitMQQueueDepthHigh
+        expr: rabbitmq_queue_messages_ready > 5000
+        for: 5m
+        labels:
+          severity: warning
+          category: messaging
+        annotations:
+          summary: "RabbitMQ queue depth is high"
+          description: "Queue {{ $labels.queue }} has {{ $value | humanize }} messages pending"
+
+      # RabbitMQ Consumer Lag
+      - alert: RabbitMQConsumerLag
+        expr: |
+          (rabbitmq_queue_messages_ready + rabbitmq_queue_messages_unacked) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          category: messaging
+        annotations:
+          summary: "RabbitMQ consumer lag detected"
+          description: "Total unprocessed messages: {{ $value | humanize }}"
+

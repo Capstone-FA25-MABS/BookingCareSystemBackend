@@ -1,0 +1,78 @@
+@startuml Create_Or_Update_Doctor_Daily_Schedule
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "DoctorServiceClient\n(gRPC)" as doctorClient
+participant "Repository" as repo
+database "Database" as db
+participant "CacheService" as cache
+
+user -> ui: 1. Tạo/cập nhật\nlịch khám theo ngày
+ui -> controller: 2. CreateOrUpdateDoctorDailySchedule(request)
+activate controller
+
+controller -> service: 3. CreateOrUpdateDoctorDailyScheduleAsync(request)
+activate service
+
+' Validate doctor
+service -> doctorClient: 4. GetDoctorAsync(doctorId)
+activate doctorClient
+doctorClient --> service: 5. DoctorResponse
+deactivate doctorClient
+
+alt Doctor Not Found or Inactive
+    service --> controller: 6. throw DoctorNotFoundException
+    controller --> ui: 7. Error Response
+    ui --> user: 8. Thông báo bác sĩ\nkhông tồn tại hoặc không hoạt động
+else Doctor Valid
+    service -> service: 9. Map request to entity
+    
+    service -> repo: 10. CreateOrUpdateDoctorDailyScheduleAsync(entity)
+    activate repo
+    
+    repo -> db: 11. SELECT existing schedule
+    activate db
+    db --> repo: 12. existing entity (nếu có)
+    deactivate db
+    
+    alt Schedule Exists
+        repo -> db: 13. UPDATE DoctorDailySchedules\nSET SchedulePatterns, UpdatedAt
+        activate db
+        db --> repo: 14. Updated entity
+        deactivate db
+    else New Schedule
+        repo -> db: 15. INSERT INTO DoctorDailySchedules
+        activate db
+        db --> repo: 16. Created entity
+        deactivate db
+    end
+    
+    repo --> service: 17. saved entity
+    deactivate repo
+    
+    ' Invalidate caches
+    service -> cache: 18. RemoveAsync(dailyCacheKey)
+    activate cache
+    cache --> service: 19. OK
+    deactivate cache
+    
+    service -> cache: 20. RemoveByPatternAsync(\navailableSlotsCacheKey)
+    activate cache
+    cache --> service: 21. OK
+    deactivate cache
+    
+    service -> service: 22. Map entity to DTO
+    service --> controller: 23. DoctorDailyScheduleDto
+    controller --> ui: 24. Success(schedule, message)
+    ui --> user: 25. Thông báo tạo/cập nhật\nlịch khám thành công
+end
+
+deactivate service
+deactivate controller
+
+@enduml

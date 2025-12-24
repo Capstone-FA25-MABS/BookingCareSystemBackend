@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Appointment.Protos";
+
+package appointment;
+
+// Appointment service definition
+service AppointmentService {
+    // Get doctor ID from appointment ID (for Payment service integration)
+    rpc GetDoctorIdByAppointmentId (GetDoctorIdByAppointmentIdRequest) returns (GetDoctorIdByAppointmentIdResponse);
+    
+    // Confirm appointment after supplementary payment (for Payment service integration)
+    rpc ConfirmAppointment (ConfirmAppointmentRequest) returns (ConfirmAppointmentResponse);
+
+    // Check if appointment slots are already booked for a doctor on a specific date
+    rpc CheckBookedSlots(CheckBookedSlotsRequest) returns (CheckBookedSlotsResponse);
+
+    // Check if appointment slots are already booked for a service medical on a specific date
+    rpc CheckServiceBookedSlots(CheckServiceBookedSlotsRequest) returns (CheckBookedSlotsResponse);
+
+    // Check booked slots count for a specialty (hospital assigns doctor mode)
+    // Returns count of PENDING/CONFIRMED appointments per time slot
+    rpc CheckSpecialtyBookedSlots(CheckSpecialtyBookedSlotsRequest) returns (CheckSpecialtyBookedSlotsResponse);
+
+    // Get appointment details by ID (for Payment service integration)
+    rpc GetAppointmentDetails (GetAppointmentDetailsRequest) returns (GetAppointmentDetailsResponse);
+    
+    // Check if patient has completed appointment with doctor/service (for Review service validation)
+    rpc CheckPatientAppointmentHistory (CheckPatientAppointmentHistoryRequest) returns (CheckPatientAppointmentHistoryResponse);
+
+    // Validate appointments are completed (for Payment service payout validation)
+    rpc ValidateCompletedAppointments (ValidateCompletedAppointmentsRequest) returns (ValidateCompletedAppointmentsResponse);
+}
+
+// Request message
+message GetDoctorIdByAppointmentIdRequest {
+    string appointment_id = 1;
+}
+
+// Response message
+message GetDoctorIdByAppointmentIdResponse {
+    bool success = 1;
+    string doctor_id = 2; // Can be empty string if null or appointment not found
+    string pending_doctor_id = 3;
+    string assigned_doctor_id = 4;
+    string reschedule_token = 5;
+    string hospital_id = 6;
+    string specialty_id = 7;
+    string appointment_type = 8; // TELEHEALTH or IN_PERSON
+}
+
+// Confirm appointment request message
+message ConfirmAppointmentRequest {
+    string appointment_id = 1;
+    bool staff_assigned = 2;
+    double new_amount = 3;  // New amount to update (0 means no change)
+}
+
+// Confirm appointment response message
+message ConfirmAppointmentResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Request to check booked slots
+message CheckBookedSlotsRequest {
+  string doctor_id = 1;  // GUID as string
+  string appointment_date = 2;  // ISO 8601 date format (yyyy-MM-dd)
+}
+
+// Response with booked appointment time IDs
+message CheckBookedSlotsResponse {
+  repeated int32 booked_appointment_time_ids = 1;  // List of AppointmentTime enum values that are booked
+}
+
+// Request to check booked slots for a service medical
+message CheckServiceBookedSlotsRequest {
+  string service_id = 1;  // Service Medical ID (GUID as string)
+  string appointment_date = 2;  // ISO 8601 date format (yyyy-MM-dd)
+}
+
+// Request to get appointment details
+message GetAppointmentDetailsRequest {
+    string appointment_id = 1;
+}
+
+// Response with appointment details
+message GetAppointmentDetailsResponse {
+    bool success = 1;
+    string message = 2;
+    AppointmentDetails appointment = 3;
+}
+
+// Appointment details message
+message AppointmentDetails {
+    string appointment_id = 1;
+    string appointment_date = 2; // ISO 8601 date-time format (yyyy-MM-ddTHH:mm:ss)
+    int32 appointment_type = 3;  // AppointmentType enum value (0=IN_PERSON, 1=TELEHEALTH)
+    string doctor_id = 4;        // Can be empty if null
+    string service_id = 5;       // Can be empty if null
+    string hospital_id = 6;      // Can be empty if null
+}
+
+// NEW: Request to check patient appointment history for review validation
+message CheckPatientAppointmentHistoryRequest {
+    string patient_id = 1;  // Patient ID (GUID as string)
+    string doctor_id = 2;   // Doctor ID (GUID as string) - optional, use for doctor reviews
+    string service_id = 3;  // Service ID (GUID as string) - optional, use for service reviews
+}
+
+// NEW: Response for patient appointment history check
+message CheckPatientAppointmentHistoryResponse {
+    bool has_completed_appointment = 1;  // True if patient has at least one COMPLETED appointment
+    int32 total_completed_appointments = 2;  // Total number of completed appointments
+    string last_completed_appointment_date = 3;  // ISO 8601 date-time format of last completed appointment
+}
+
+// Request to check booked slots for a specialty (hospital assigns doctor mode)
+message CheckSpecialtyBookedSlotsRequest {
+    string hospital_id = 1;       // Hospital ID (GUID as string)
+    string specialty_id = 2;      // Specialty ID (GUID as string)
+    string appointment_date = 3;  // ISO 8601 date format (yyyy-MM-dd)
+    int32 appointment_type = 4;   // AppointmentType enum value (0=IN_PERSON, 1=TELEHEALTH)
+}
+
+// Response with booked counts per time slot for specialty
+message CheckSpecialtyBookedSlotsResponse {
+    repeated SpecialtySlotBookedCount booked_slots = 1;
+}
+
+// Booked count for a specific time slot
+message SpecialtySlotBookedCount {
+    int32 appointment_time_id = 1;  // AppointmentTime enum value
+    int32 booked_count = 2;         // Number of PENDING/CONFIRMED appointments for this slot
+}
+
+// Request to validate appointments are completed
+message ValidateCompletedAppointmentsRequest {
+    repeated string appointment_ids = 1;  // List of appointment IDs to validate
+}
+
+// Response for completed appointments validation
+message ValidateCompletedAppointmentsResponse {
+    repeated string completed_appointment_ids = 1;  // List of appointment IDs that are COMPLETED
+    repeated string non_completed_appointment_ids = 2;  // List of appointment IDs that are NOT completed
+    int32 total_completed = 3;  // Total number of completed appointments
+    int32 total_non_completed = 4;  // Total number of non-completed appointments
+}
+

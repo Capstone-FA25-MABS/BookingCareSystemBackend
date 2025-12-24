@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<Protobuf Include="Protos/appointment.proto" GrpcServices="Server" />
+	<Protobuf Include="../BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" />
+	<Protobuf Include="../BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" Link="Protos/hospital.proto" />
+	<Protobuf Include="../BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" Link="Protos/user.proto" />
+	<Protobuf Include="../BookingCare.Services.Payment/Protos/payment.proto" GrpcServices="Client" Link="Protos/payment.proto" />
+	<Protobuf Include="../BookingCare.Services.ServiceMedical/Protos/serviceMedical.proto" GrpcServices="Client" Link="Protos/serviceMedical.proto" />
+	<Protobuf Include="../BookingCare.Services.Schedule/Protos/schedule.proto" GrpcServices="Client" Link="Protos/schedule.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="12.0.1" />
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="QuestPDF" Version="2025.7.4" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Cache\BookingCare.Shared.Cache.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.EventBus\BookingCare.Shared.EventBus.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.FileUpload\BookingCare.Shared.FileUpload.csproj" />
+  </ItemGroup>
+
+</Project>

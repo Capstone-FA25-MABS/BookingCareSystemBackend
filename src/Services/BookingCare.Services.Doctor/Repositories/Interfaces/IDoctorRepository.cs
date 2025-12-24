@@ -1,0 +1,105 @@
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.Entities;
+
+namespace BookingCare.Services.Doctor.Repositories.Interfaces;
+
+public interface IDoctorRepository
+{
+    // Doctor CRUD operations
+    Task<DoctorEntity?> GetDoctorByIdAsync(Guid id);
+    Task<DoctorEntity?> GetDoctorByEmailAsync(string email);
+    Task<DoctorEntity?> GetDoctorByAccountIdAsync(Guid accountId);
+    Task<DoctorEntity> CreateDoctorAsync(DoctorEntity doctor);
+    Task<DoctorEntity> UpdateDoctorAsync(DoctorEntity doctor);
+    Task<bool> DeleteDoctorAsync(Guid id);
+    Task<bool> DoctorExistsAsync(Guid id);
+    Task<bool> DoctorEmailExistsAsync(string email, Guid? excludeId = null);
+    Task<bool> DoctorAccountExistsAsync(Guid accountId, Guid? excludeId = null);
+
+    // Doctor Query operations
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsAsync(DoctorQueryRequest query);
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAsync(Guid hospitalId);
+    Task<List<DoctorEntity>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
+    Task<List<DoctorEntity>> GetDoctorsByPositionAsync(Guid positionId);
+    Task<List<DoctorEntity>> GetActiveDoctorsAsync();
+    IQueryable<DoctorEntity> GetQueryableDoctors();
+    Task<List<DoctorEntity>> GetDoctorsByIdsAsync(IEnumerable<Guid> ids);
+    Task<List<DoctorEntity>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds);
+
+    // DoctorPrice CRUD operations
+    Task<DoctorPriceEntity?> GetDoctorPriceAsync(Guid doctorId, Guid priceId);
+    Task<DoctorPriceEntity> CreateDoctorPriceAsync(DoctorPriceEntity doctorPrice);
+    Task<DoctorPriceEntity> UpdateDoctorPriceAsync(DoctorPriceEntity doctorPrice);
+    Task<bool> DeleteDoctorPriceAsync(Guid doctorId, Guid priceId);
+    Task<bool> DoctorPriceExistsAsync(Guid doctorId, Guid priceId);
+
+    // DoctorPrice Query operations
+    Task<List<DoctorPriceEntity>> GetDoctorPricesAsync(Guid doctorId);
+
+    // Optimized methods for gRPC performance
+    Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
+    Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+    Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName);
+    Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
+
+    // Get doctors by hospital and specialty (for Appointment Service)
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    /// <summary>
+    /// Get doctor IDs with AccountIds by hospital and specialty (optimized for schedule aggregation)
+    /// Returns doctor ID to account ID mapping in a single query
+    /// Optionally filters by service type name (appointment type like "IN_PERSON" or "TELEHEALTH")
+    /// </summary>
+    Task<Dictionary<Guid, Guid>> GetDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? serviceTypeName = null);
+
+    // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    Task<DoctorPriceEntity?> GetDoctorPriceByIdAsync(Guid priceId);
+
+    // Optimized method for Patient Search with minimal data
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForPatientSearchAsync(DoctorQueryRequest query);
+
+    // Optimized method for complex filtering with multiple criteria
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForComplexFilterAsync(DoctorQueryRequest query);
+
+    // Language operations
+    Task<List<LanguageEntity>> GetLanguagesAsync();
+    Task<LanguageEntity?> GetLanguageByIdAsync(Guid id);
+    Task<LanguageEntity> CreateLanguageAsync(LanguageEntity language);
+    Task<LanguageEntity> UpdateLanguageAsync(LanguageEntity language);
+    Task<bool> DeleteLanguageAsync(Guid id);
+
+    // DoctorLanguage operations
+    Task<List<DoctorLanguageEntity>> GetDoctorLanguagesAsync(Guid doctorId);
+    Task<DoctorLanguageEntity> CreateDoctorLanguageAsync(DoctorLanguageEntity doctorLanguage);
+    Task<bool> DeleteDoctorLanguageAsync(Guid doctorId, Guid languageId);
+    Task<bool> DeleteAllDoctorLanguagesAsync(Guid doctorId);
+
+    // ServiceType operations
+    Task<List<ServiceTypeEntity>> GetServiceTypesAsync();
+    Task<ServiceTypeEntity?> GetServiceTypeByIdAsync(Guid id);
+    Task<ServiceTypeEntity> CreateServiceTypeAsync(ServiceTypeEntity serviceType);
+    Task<ServiceTypeEntity> UpdateServiceTypeAsync(ServiceTypeEntity serviceType);
+    Task<bool> DeleteServiceTypeAsync(Guid id);
+
+    // Doctor count operations
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
+
+    // Get service types by hospital with doctor count
+    Task<List<(Guid ServiceTypeId, string ServiceTypeName, string? ServiceTypeImageUrl, int DoctorCount)>> GetServiceTypesByHospitalAsync(Guid hospitalId);
+
+    // Hospital staff management operations (optimized - only returns AccountIds)
+    Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId);
+
+    // Doctor assignment operations (for hospital staff to assign doctor to pending appointments)
+    /// <summary>
+    /// Get doctors for assignment by hospital, specialty and appointment type
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    Task<List<DoctorEntity>> GetDoctorsForAssignmentAsync(Guid hospitalId, Guid specialtyId, string appointmentType);
+
+    /// <summary>
+    /// Get doctors for assignment by specific doctor IDs
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    Task<List<DoctorEntity>> GetDoctorsByIdsForAssignmentAsync(List<Guid> doctorIds, string appointmentType);
+}

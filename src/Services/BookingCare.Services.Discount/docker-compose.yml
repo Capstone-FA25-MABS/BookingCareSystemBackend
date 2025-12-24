@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # SQL Server database for Discount Service
+  discount-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: discount-sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: Discount123!
+      MSSQL_PID: Developer
+    ports:
+      - "1434:1433"
+    volumes:
+      - discount_db_data:/var/opt/mssql
+    networks:
+      - discount-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Discount123! -Q 'SELECT 1' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Discount Service
+  discount-service:
+    build:
+      context: ../../..
+      dockerfile: src/Services/BookingCare.Services.Discount/Dockerfile
+    container_name: discount-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:6007;http://+:6017
+      - ConnectionStrings__DefaultConnection=Server=discount-db,1433;Database=MABS_Discount;User Id=sa;Password=Discount123!;TrustServerCertificate=true;
+    ports:
+      - "6007:6007"  # HTTP/REST API
+      - "6017:6017"  # gRPC
+    depends_on:
+      discount-db:
+        condition: service_healthy
+    networks:
+      - discount-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6007/api/discounts/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - ./logs:/app/logs  # Optional: for log persistence
+
+volumes:
+  discount_db_data:
+    driver: local
+
+networks:
+  discount-network:
+    driver: bridge

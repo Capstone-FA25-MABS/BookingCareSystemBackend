@@ -1,0 +1,205 @@
+using BookingCare.Services.Payment.Controllers;
+using BookingCare.Services.Payment.Data;
+using BookingCare.Services.Payment.Handlers;
+using BookingCare.Services.Payment.Mappings;
+using BookingCare.Services.Payment.Models.Configurations;
+using BookingCare.Services.Payment.Repositories.Implementations;
+using BookingCare.Services.Payment.Repositories.Interfaces;
+using BookingCare.Services.Payment.Services.BackgroundServices;
+using BookingCare.Services.Payment.Services.Grpc;
+using BookingCare.Services.Payment.Services.Implementations;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Services.Payment.Validators;
+using BookingCare.Shared.Common.AppRouting;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.EventBus.Extensions;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Swashbuckle.AspNetCore.SwaggerGen;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "payment");
+
+// Add Entity Framework
+builder.Services.AddDbContext<PaymentDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? "Server=(local);Database=PaymentDb;Trusted_Connection=True;TrustServerCertificate=True;"
+    )
+);
+
+// Add Payment-specific configurations
+builder.Services.Configure<VNPayConfiguration>(
+    builder.Configuration.GetSection("VNPayConfiguration")
+);
+builder.Services.Configure<PayOSConfiguration>(
+    builder.Configuration.GetSection("PayOSConfiguration")
+);
+builder.Services.Configure<StripeConfiguration>(
+    builder.Configuration.GetSection("StripeConfiguration")
+);
+
+// Add repositories
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
+builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRepository>();
+builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+builder.Services.AddScoped<IRefundHistoryRepository, RefundHistoryRepository>();
+builder.Services.AddScoped<IHospitalPayoutRepository, HospitalPayoutRepository>();
+
+// Add refund-related wrapper classes for constructor parameter reduction
+builder.Services.AddScoped<RefundDependencies>();
+builder.Services.AddScoped<RefundProcessors>();
+
+// Add services
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IVNPayService, VNPayService>();
+builder.Services.AddScoped<IPayOSService, PayOSService>();
+builder.Services.AddScoped<IStripeService, StripeService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
+builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
+builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
+builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
+builder.Services.AddScoped<IHospitalPayoutService, HospitalPayoutService>();
+builder.Services.AddSingleton<BookingCare.Services.Payment.Services.DatabaseInitializationService>();
+
+// Add payment gateway wrapper class for constructor parameter reduction
+builder.Services.AddScoped<PaymentGatewayServices>();
+
+// Add background services
+builder.Services.AddHostedService<PayOSMappingCleanupService>();
+builder.Services.AddHostedService<RefundHistoryProcessingService>();
+builder.Services.AddHostedService<PendingPaymentCleanupService>();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));
+
+// Add validators
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePaymentRequestValidator>();
+
+// Add EventBus for message queue integration
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "payment-service-queue");
+builder.Services.AddIntegrationEventHandler<AppointmentCancelledEventHandler>();
+builder.Services.AddIntegrationEventHandler<BankAccountCreatedEventHandler>();
+
+// Add gRPC client for User Service (to fetch patient info)
+// Using UserService from Appointment Service project reference
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
+{
+    var userServiceUrl =
+        builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl")
+        ?? "http://localhost:6116";
+    o.Address = new Uri(userServiceUrl);
+});
+
+// Add gRPC client for Appointment Service (to get doctorId from appointmentId for payment failure redirect)
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(
+    o =>
+    {
+        var appointmentServiceUrl =
+            builder.Configuration.GetSection("Services:Appointment").GetValue<string>("GrpcUrl")
+            ?? "http://localhost:6102";
+        o.Address = new Uri(appointmentServiceUrl);
+    }
+);
+
+// Add gRPC client for Hospital Subscription Service (to create/upgrade subscriptions after payment)
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
+    o =>
+    {
+        var hospitalServiceUrl = "http://localhost:6104";
+        o.Address = new Uri(hospitalServiceUrl);
+    }
+);
+
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(
+    o =>
+    {
+        var hospitalServiceUrl = "http://localhost:6104";
+        o.Address = new Uri(hospitalServiceUrl);
+    }
+);
+
+// Add gRPC client for Discount Service (to validate and use discount codes)
+builder.Services.AddGrpcClient<BookingCare.Services.Discount.Protos.DiscountService.DiscountServiceClient>(
+    o =>
+    {
+        var discountServiceUrl =
+            builder.Configuration.GetSection("Services:Discount").GetValue<string>("GrpcUrl")
+            ?? "http://localhost:6107";
+        o.Address = new Uri(discountServiceUrl);
+    }
+);
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+builder.Services.AddJwtAuthAndAuthorization();
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// Add common services using ProgramExtensions
+builder.Services.AddCommonControllers();
+builder.Services.AddGrpc();
+
+// Add Swagger with XML documentation support
+builder.Services.AddCommonSwagger("Payment Service");
+builder.Services.Configure<SwaggerGenOptions>(c =>
+{
+    // Include XML comments for Payment Service
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+});
+
+var app = builder.Build();
+
+// Ensure database is created
+await EnsureDatabaseCreated(app);
+
+// Add global exception handling early in pipeline
+app.UseGlobalExceptionHandling();
+
+// Use common Swagger UI configuration
+app.UseCommonSwaggerUI("Payment Service");
+app.UseStandardAuthPipeline();
+app.MapControllers();
+app.MapGrpcService<PaymentGrpcService>();
+
+// Map common health check
+app.MapCommonHealthCheck("Payment Service");
+
+// Subscribe to appointment cancellation events
+app.UseEventBus(eventBus =>
+{
+    eventBus.Subscribe<AppointmentCancelledIntegrationEvent, AppointmentCancelledEventHandler>();
+    eventBus.Subscribe<BankAccountCreatedIntegrationEvent, BankAccountCreatedEventHandler>();
+});
+
+app.Run();
+
+/// <summary>
+/// Ensures the database is created and configured properly
+/// </summary>
+static async Task EnsureDatabaseCreated(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Payment.Services.DatabaseInitializationService>();
+    try
+    {
+        await dbInitService.InitializeAsync();
+        app.Logger.LogInformation("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while initializing the database");
+    }
+}

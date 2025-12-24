@@ -1,0 +1,1231 @@
+using BookingCare.Services.Auth.Models.DTOs;
+using BookingCare.Services.Auth.Services;
+using BookingCare.Shared.Common.Controllers;
+using Microsoft.AspNetCore.Authorization;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Mvc;
+using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Auth.Utils;
+using System.ComponentModel.DataAnnotations;
+using BookingCare.Services.Auth.Constants;
+using BookingCare.Shared.Saga.Abstractions;
+using BookingCare.Shared.Saga.Models;
+using BookingCare.Shared.Saga.SagaDefinition;
+using BookingCare.Shared.Common.Helpers;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.Common.AppRouting;
+using Microsoft.Extensions.Options;
+using BookingCare.Services.Auth.Configuration;
+
+
+namespace BookingCare.Services.Auth.Controllers;
+
+/// <summary>
+/// Authentication controller - handles user authentication and authorization
+/// </summary>
+[ApiController]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
+[Produces("application/json")]
+public class AuthController : BaseApiController
+{
+    private readonly IAuthService _authService;
+    private readonly CookieService _cookieService;
+    private readonly ISagaManager _sagaManager;
+    private readonly ILogger<AuthController> _logger;
+    private readonly IEventBus _eventBus;
+    private readonly FrontendOptions _frontendOptions;
+    private readonly DefaultAvatarsOptions _avatarOptions;
+
+    public AuthController(
+        IAuthService authService,
+        CookieService cookieService,
+        ISagaManager sagaManager,
+        ILogger<AuthController> logger,
+        IEventBus eventBus,
+        IOptions<FrontendOptions> frontendOptions,
+        IOptions<DefaultAvatarsOptions> avatarOptions)
+    {
+        _authService = authService;
+        _cookieService = cookieService;
+        _sagaManager = sagaManager;
+        _logger = logger;
+        _eventBus = eventBus;
+        _frontendOptions = frontendOptions.Value;
+        _avatarOptions = avatarOptions.Value;
+    }
+
+    #region Authentication Operations
+
+    /// <summary>
+    /// Health check endpoint - Available in all versions
+    /// </summary>
+    /// <returns>Health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            Status = "Healthy",
+            Service = "Auth",
+            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    /// <summary>
+    /// Authenticate account and generate JWT token
+    /// </summary>
+    /// <param name="request">Login credentials</param>
+    /// <returns>Authentication response message</returns>
+    [HttpPost("login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var result = await _authService.LoginAsync(request);
+        return Success(result, "Login successful");
+    }
+
+    /// <summary>
+    /// Register new doctor account
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Authentication response message</returns>
+    [HttpPost("register/doctor")]
+    [Authorize(Policy = "Role:Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
+        if (roleValidation != null) return roleValidation;
+
+        var result = await _authService.RegisterAsync(request, Role.DOCTOR);
+        return Created(result, "Account registered successfully");
+    }
+
+    /// <summary>
+    /// Register new hospital account
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Authentication response message</returns>
+    [HttpPost("register/staff")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterHospital([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.STAFF);
+        if (roleValidation != null) return roleValidation;
+
+        var result = await _authService.RegisterAsync(request, Role.STAFF);
+        return Created(result, "Account registered successfully");
+    }
+
+    /// <summary>
+    /// Refresh JWT token using refresh token
+    /// </summary>
+    /// <returns>New authentication response</returns>
+    [HttpPost("refresh-token")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RefreshToken()
+    {
+        var refreshToken = _cookieService.GetRefreshTokenFromCookies();
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return Unauthorized("Refresh token is missing in cookie");
+        }
+
+        var result = await _authService.RefreshTokenAsync(refreshToken);
+        return Success(result, "Token refreshed successfully");
+    }
+
+    /// <summary>
+    /// Logout account and invalidate refresh token
+    /// </summary>
+    /// <returns>Success response</returns>
+    [HttpPost("logout")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Logout()
+    {
+        var refreshToken = _cookieService.GetRefreshTokenFromCookies();
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return BadRequest("Refresh token is missing in cookie");
+        }
+        await _authService.LogoutAsync(refreshToken);
+        return Success("Logout successful");
+    }
+
+    /// <summary>
+    /// Change account password
+    /// </summary>
+    /// <param name="request">Password change request</param>
+    /// <returns>Success response</returns>
+    [HttpPost("change-password")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        try
+        {
+            var validation = ValidateBasicRequest();
+            if (validation != null) return validation;
+
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            await _authService.ChangePasswordAsync(request, accountId);
+            return Success("Password changed successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+
+    }
+
+    /// <summary>
+    /// Request password reset
+    /// </summary>
+    /// <param name="request">Password reset request</param>
+    /// <returns>Success response</returns>
+    [HttpPost("forgot-password")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        await _authService.ForgotPasswordAsync(request);
+
+        // Do not reveal whether the target exists; return generic success
+        var response = new
+        {
+            NextStep = !string.IsNullOrWhiteSpace(request.Email)
+                ? "If the email exists, a reset link was sent"
+                : "An OTP was sent if the phone is registered"
+        };
+
+        return Success(response, "If the account exists, instructions have been sent");
+    }
+
+    /// <summary>
+    /// Reset password with token
+    /// </summary>
+    /// <param name="request">Password reset with token request</param>
+    /// <returns>Success response</returns>
+    [HttpPost("reset-password")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        await _authService.ResetPasswordAsync(request);
+        return Success("Password reset successfully");
+    }
+
+    /// <summary>
+    /// Reset token after OTP verification (phone flow)
+    /// </summary>
+    /// <param name="request">Reset token request</param>
+    /// <returns>Reset token and URL</returns>
+    [HttpPost("reset-token")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ResetToken([FromBody] ResetTokenRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.ResetTokenAsync(request);
+        return Success(result, "Reset token if the phone is registered");
+    }
+
+    /// <summary>
+    /// Authenticate with Google OAuth2
+    /// </summary>
+    /// <param name="request">Google login request</param>
+    /// <returns>Authentication response</returns>
+    [HttpPost("google-login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GoogleLogin([FromBody] ExternalAuthRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.GoogleLoginAsync(request);
+        return Success(result, "Google login successful");
+    }
+
+    /// <summary>
+    /// Authenticate with Facebook OAuth2
+    /// </summary>
+    /// <param name="request">Facebook login request</param>
+    /// <returns>Authentication response</returns>
+    [HttpPost("facebook-login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> FacebookLogin([FromBody] ExternalAuthRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.FacebookLoginAsync(request);
+        return Success(result, "Facebook login successful");
+    }
+
+    /// <summary>
+    /// Register new patient using Saga pattern
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Saga execution result</returns>
+    [HttpPost("register/patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.PATIENT);
+        if (roleValidation != null) return roleValidation;
+
+        // Create saga context
+        var sagaContext = new SagaContext
+        {
+            SagaName = "UserRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        sagaContext.SetData("Role", Role.PATIENT.ToString());
+        sagaContext.SetData(AuthConstants.SAGA_KEY_EMAIL, request.Email);
+        sagaContext.SetData("Password", request.Password);
+        sagaContext.SetData(AuthConstants.SAGA_KEY_FULLNAME, request.FullName);
+        sagaContext.SetData("PhoneNumber", request.PhoneNumber);
+        sagaContext.SetData("Gender", request.Gender?.ToString());
+        sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
+        sagaContext.SetData("Address", request.Address);
+        sagaContext.SetData("AvatarUrl", request.Gender == Gender.MALE
+            ? _avatarOptions.User.Male
+            : _avatarOptions.User.Female);
+
+        // OTP verification fields for Patient registration
+        sagaContext.SetData("Purpose", request.Purpose.ToKey());
+        sagaContext.SetData("Channel", string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant());
+        sagaContext.SetData("Proof", request.Proof);
+        sagaContext.SetData("IssuedAt", request.IssuedAt);
+
+        try
+        {
+            // Execute User Registration Saga synchronously
+            var result = await _sagaManager.ExecuteSagaAsync<UserRegistrationSaga>(sagaContext);
+
+            if (result.Status == SagaStatus.Completed)
+            {
+                return Success("User registration completed successfully");
+            }
+            else
+            {
+                return BadRequest(new
+                {
+                    SagaId = result.SagaId,
+                    Status = result.Status.ToString(),
+                    Message = "User registration failed",
+                    Error = result.ErrorMessage
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing user registration saga");
+            return BadRequest(new
+            {
+                Message = "User registration failed",
+                Error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Register new doctor using Saga pattern
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Saga execution result</returns>
+    [HttpPost("register/doctor-saga")]
+    [Authorize(Policy = "Role:Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterDoctorSaga([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
+        if (roleValidation != null) return roleValidation;
+
+        var generatedPassword = PasswordHelper.GenerateStrongPassword(16);
+        var sagaContext = PrepareDoctorSagaContext(request, generatedPassword);
+
+        try
+        {
+            var result = await _sagaManager.ExecuteSagaAsync<DoctorRegistrationSaga>(sagaContext);
+
+            if (result.Status == SagaStatus.Completed)
+            {
+                await PublishDoctorCredentialsAsync(request, generatedPassword);
+
+                return Created(new
+                {
+                    SagaId = result.SagaId,
+                    Status = result.Status.ToString(),
+                    Message = "Doctor registration completed successfully",
+                }, "Doctor registration completed successfully");
+            }
+
+            return BadRequest(new
+            {
+                SagaId = result.SagaId,
+                Status = result.Status.ToString(),
+                Message = "Doctor registration failed",
+                Error = result.ErrorMessage
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing doctor registration saga");
+            return BadRequest(new
+            {
+                Message = "Doctor registration failed",
+                Error = ex.Message
+            });
+        }
+    }
+
+    #endregion
+
+    #region Account Operations   
+
+    /// <summary>
+    /// Ban/Unban account (toggle ACTIVE/INACTIVE)
+    /// </summary>
+    /// <param name="id">Account ID</param>
+    /// <returns>Success response</returns>
+    [HttpPost("accounts/{id}/ban-unban")]
+    [Authorize(Policy = "Role:Admin,Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> BanUnban(Guid id)
+    {
+        var status = await _authService.ToggleAccountActiveStatusAsync(id);
+        var message = status == Status.ACTIVE ? "Account unbanned (activated) successfully" : "Account banned (deactivated) successfully";
+        return Success(message);
+    }
+
+    /// <summary>
+    /// Lock account
+    /// </summary>
+    /// <param name="id">Account ID</param>
+    /// <returns>Success response</returns>
+    [HttpPost("accounts/{id}/lock")]
+    [Authorize(Policy = "Role:Admin,Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> LockAccount(Guid id)
+    {
+        var result = await _authService.LockAccountAsync(id);
+        if (!result)
+        {
+            return NotFound($"Account with ID {id} not found");
+        }
+
+        return Success("Account locked successfully");
+    }
+
+    /// <summary>
+    /// Unlock account
+    /// </summary>
+    /// <param name="id">Account ID</param>
+    /// <returns>Success response</returns>
+    [HttpPost("accounts/{id}/unlock")]
+    [Authorize(Policy = "Role:Admin,Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UnlockAccount(Guid id)
+    {
+        var result = await _authService.UnlockAccountAsync(id);
+        if (!result)
+        {
+            return NotFound($"Account with ID {id} not found");
+        }
+
+        return Success("Account unlocked successfully");
+    }
+
+    #endregion
+
+    #region Role Operations
+
+    /// <summary>
+    /// Create new role
+    /// </summary>
+    /// <param name="request">Role creation request</param>
+    /// <returns>Created role information</returns>
+    [HttpPost("roles")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.CreateRoleAsync(request);
+        return Created(result, "Role created successfully");
+    }
+
+    /// <summary>
+    /// Get role by ID
+    /// </summary>
+    /// <param name="id">Role ID</param>
+    /// <returns>Role information</returns>
+    [HttpGet("roles/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRole(Guid id)
+    {
+        var role = await _authService.GetRoleByIdAsync(id);
+        if (role == null)
+        {
+            return NotFound($"Role with ID {id} not found");
+        }
+
+        return Success(role, "Role retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get role by name
+    /// </summary>
+    /// <param name="name">Role name</param>
+    /// <returns>Role information</returns>
+    [HttpGet("roles/by-name/{name}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRoleByName(string name)
+    {
+        var role = await _authService.GetRoleByNameAsync(name);
+        if (role == null)
+        {
+            return NotFound($"Role with name '{name}' not found");
+        }
+
+        return Success(role, "Role retrieved successfully");
+    }
+
+    /// <summary>
+    /// Update role information
+    /// </summary>
+    /// <param name="id">Role ID</param>
+    /// <param name="request">Role update request</param>
+    /// <returns>Updated role information</returns>
+    [HttpPut("roles/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
+    {
+        if (id != request.Id)
+        {
+            return BadRequest("ID mismatch between route and request body");
+        }
+
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.UpdateRoleAsync(request);
+        return Success(result, "Role updated successfully");
+    }
+
+    /// <summary>
+    /// Delete role
+    /// </summary>
+    /// <param name="id">Role ID</param>
+    /// <returns>Success response</returns>
+    [HttpDelete("roles/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> DeleteRole(Guid id)
+    {
+        var result = await _authService.DeleteRoleAsync(id);
+        if (!result)
+        {
+            return NotFound($"Role with ID {id} not found");
+        }
+
+        return Success("Role deleted successfully");
+    }
+
+    /// <summary>
+    /// Get roles with filtering and pagination
+    /// </summary>
+    /// <param name="query">Query parameters</param>
+    /// <returns>Paginated list of roles</returns>
+    [HttpGet("roles")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRoles([FromQuery] RoleQueryRequest query)
+    {
+        var result = await _authService.GetRolesAsync(query);
+        return Success(result, "Roles retrieved successfully");
+    }
+
+    #endregion
+
+    #region Permission Operations
+
+    /// <summary>
+    /// Create new permission
+    /// </summary>
+    /// <param name="request">Permission creation request</param>
+    /// <returns>Created permission information</returns>
+    [HttpPost("permissions")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.CreatePermissionAsync(request);
+        return Created(result, "Permission created successfully");
+    }
+
+    /// <summary>
+    /// Get permission by ID
+    /// </summary>
+    /// <param name="id">Permission ID</param>
+    /// <returns>Permission information</returns>
+    [HttpGet("permissions/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetPermission(Guid id)
+    {
+        var permission = await _authService.GetPermissionByIdAsync(id);
+        if (permission == null)
+        {
+            return NotFound($"Permission with ID {id} not found");
+        }
+
+        return Success(permission, "Permission retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get permission by name
+    /// </summary>
+    /// <param name="name">Permission name</param>
+    /// <returns>Permission information</returns>
+    [HttpGet("permissions/by-name/{name}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetPermissionByName(string name)
+    {
+        var permission = await _authService.GetPermissionByNameAsync(name);
+        if (permission == null)
+        {
+            return NotFound($"Permission with name '{name}' not found");
+        }
+
+        return Success(permission, "Permission retrieved successfully");
+    }
+
+    /// <summary>
+    /// Update permission information
+    /// </summary>
+    /// <param name="id">Permission ID</param>
+    /// <param name="request">Permission update request</param>
+    /// <returns>Updated permission information</returns>
+    [HttpPut("permissions/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
+    {
+        if (id != request.Id)
+        {
+            return BadRequest("ID mismatch between route and request body");
+        }
+
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.UpdatePermissionAsync(request);
+        return Success(result, "Permission updated successfully");
+    }
+
+    /// <summary>
+    /// Delete permission
+    /// </summary>
+    /// <param name="id">Permission ID</param>
+    /// <returns>Success response</returns>
+    [HttpDelete("permissions/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> DeletePermission(Guid id)
+    {
+        var result = await _authService.DeletePermissionAsync(id);
+        if (!result)
+        {
+            return NotFound($"Permission with ID {id} not found");
+        }
+
+        return Success("Permission deleted successfully");
+    }
+
+    /// <summary>
+    /// Get permissions with filtering and pagination
+    /// </summary>
+    /// <param name="query">Query parameters</param>
+    /// <returns>Paginated list of permissions</returns>
+    [HttpGet("permissions")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetPermissions([FromQuery] PermissionQueryRequest query)
+    {
+        var result = await _authService.GetPermissionsAsync(query);
+        return Success(result, "Permissions retrieved successfully");
+    }
+
+    #endregion
+
+    #region Account-Role Operations
+
+    /// <summary>
+    /// Assign role to account
+    /// </summary>
+    /// <param name="request">Role assignment request</param>
+    /// <returns>Account-role relationship information</returns>
+    [HttpPost("accounts/assign-role")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> AssignRoleToAccount([FromBody] AssignRoleRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.AssignRoleToAccountAsync(request);
+        return Success(result, "Role assigned to account successfully");
+    }
+
+    /// <summary>
+    /// Remove role from account
+    /// </summary>
+    /// <param name="request">Role removal request</param>
+    /// <returns>Success response</returns>
+    [HttpDelete("accounts/remove-role")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RemoveRoleFromAccount([FromBody] RemoveRoleRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        await _authService.RemoveRoleFromAccountAsync(request);
+        return Success("Role removed from account successfully");
+    }
+
+    /// <summary>
+    /// Get account roles
+    /// </summary>
+    /// <param name="accountId">Account ID</param>
+    /// <returns>List of roles assigned to account</returns>
+    [HttpGet("accounts/{accountId}/roles")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAccountRoles(Guid accountId)
+    {
+        var result = await _authService.GetAccountRolesAsync(accountId);
+        return Success(result, "Account roles retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get accounts by role
+    /// </summary>
+    /// <param name="roleId">Role ID</param>
+    /// <returns>List of accounts with specified role</returns>
+    [HttpGet("roles/{roleId}/accounts")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAccountsByRole(Guid roleId)
+    {
+        var result = await _authService.GetAccountsByRoleAsync(roleId);
+        return Success(result, "Accounts by role retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get accounts by role name with detailed profile information (for admin management)
+    /// </summary>
+    /// <param name="role">Role name (Patient/Doctor/Staff)</param>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 10)</param>
+    /// <param name="searchTerm">Search term for filtering by name or email</param>
+    /// <param name="sortBy">Sort field (FullName/Email/CreatedAt)</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>Paginated list of accounts with profile details</returns>
+    [HttpGet("admin/accounts")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAccountsByRole(
+        [FromQuery] string role = "Patient",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string sortBy = AuthConstants.SORT_FIELD_CREATED_AT,
+        [FromQuery] string sortOrder = "desc")
+    {
+        // Validate role name
+        var validRoles = new[] { "Patient", "Doctor", "Staff" };
+        if (!validRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", validRoles)}");
+        }
+
+        // Validate pagination and sorting parameters
+        var validation = ValidatePaginationAndSorting(pageNumber, pageSize, sortBy, sortOrder);
+        if (validation != null) return validation;
+
+        var result = await _authService.GetAccountsByRoleNameAsync(
+            role,
+            pageNumber,
+            pageSize,
+            searchTerm,
+            sortBy,
+            sortOrder);
+        return Success(result, $"Retrieved {result.Accounts.Count} accounts with role '{role}'");
+    }
+
+    /// <summary>
+    /// Get doctors by hospital ID (for Staff role to manage their hospital's doctors)
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 10)</param>
+    /// <param name="searchTerm">Search term for filtering by name or email</param>
+    /// <param name="sortBy">Sort field (FullName/Email/CreatedAt)</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>Paginated list of doctors for the hospital</returns>
+    [HttpGet("hospital/{hospitalId}/doctors")]
+    [Authorize(Policy = "Role:Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetDoctorsByHospital(
+        Guid hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string sortBy = AuthConstants.SORT_FIELD_CREATED_AT,
+        [FromQuery] string sortOrder = "desc")
+    {
+        // Validate pagination and sorting parameters
+        var validation = ValidatePaginationAndSorting(pageNumber, pageSize, sortBy, sortOrder);
+        if (validation != null) return validation;
+
+        var result = await _authService.GetDoctorsByHospitalAsync(
+            hospitalId,
+            pageNumber,
+            pageSize,
+            searchTerm,
+            sortBy,
+            sortOrder);
+
+        return Success(result, $"Retrieved {result.Accounts.Count} doctors for hospital {hospitalId}");
+    }
+
+    #endregion
+
+    #region Role-Permission Operations
+
+    /// <summary>
+    /// Assign permission to role
+    /// </summary>
+    /// <param name="request">Permission assignment request</param>
+    /// <returns>Role-permission relationship information</returns>
+    [HttpPost("roles/assign-permission")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.AssignPermissionToRoleAsync(request);
+        return Success(result, "Permission assigned to role successfully");
+    }
+
+    /// <summary>
+    /// Remove permission from role
+    /// </summary>
+    /// <param name="request">Permission removal request</param>
+    /// <returns>Success response</returns>
+    [HttpDelete("roles/remove-permission")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        await _authService.RemovePermissionFromRoleAsync(request);
+        return Success("Permission removed from role successfully");
+    }
+
+    /// <summary>
+    /// Get role permissions
+    /// </summary>
+    /// <param name="roleId">Role ID</param>
+    /// <returns>List of permissions assigned to role</returns>
+    [HttpGet("roles/{roleId}/permissions")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRolePermissions(Guid roleId)
+    {
+        var result = await _authService.GetRolePermissionsAsync(roleId);
+        return Success(result, "Role permissions retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get roles by permission
+    /// </summary>
+    /// <param name="permissionId">Permission ID</param>
+    /// <returns>List of roles with specified permission</returns>
+    [HttpGet("permissions/{permissionId}/roles")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRolesByPermission(Guid permissionId)
+    {
+        var result = await _authService.GetRolesByPermissionAsync(permissionId);
+        return Success(result, "Roles by permission retrieved successfully");
+    }
+
+    #endregion
+
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Validate role-specific requirements for RegisterRequest
+    /// </summary>
+    private IActionResult? ValidateRoleSpecificRequirements(RegisterRequest request, Role role)
+    {
+        var roleValidationResults = request.ValidateByRole(role).ToList();
+        if (roleValidationResults.Any())
+        {
+            return BadRequest(AuthConstants.InvalidRequestData, roleValidationResults.Select(vr => vr.ErrorMessage ?? AuthConstants.ValidationError).ToList());
+        }
+        return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Validate custom business rules for IValidatableObject DTOs
+    /// </summary>
+    private IActionResult? ValidateCustomBusinessRules<T>(T request) where T : IValidatableObject
+    {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(request);
+        if (!Validator.TryValidateObject(request, validationContext, validationResults, true))
+        {
+            return BadRequest(AuthConstants.InvalidRequestData, validationResults.Select(vr => vr.ErrorMessage ?? AuthConstants.ValidationError).ToList());
+        }
+        return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Handle standard validation flow for requests
+    /// </summary>
+    private IActionResult? ValidateRequest<T>(T request) where T : IValidatableObject
+    {
+        // 1. Data Annotations validation (tự động)
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(AuthConstants.InvalidRequestData, ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage ?? AuthConstants.ValidationError)
+                .ToList());
+        }
+
+        // 2. Custom business rules validation
+        return ValidateCustomBusinessRules(request);
+    }
+
+    /// <summary>
+    /// Handle basic validation flow for simple DTOs (only Data Annotations)
+    /// </summary>
+    private IActionResult? ValidateBasicRequest()
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(AuthConstants.InvalidRequestData, ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage ?? AuthConstants.ValidationError)
+                .ToList());
+        }
+        return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Prepare saga context for doctor registration
+    /// </summary>
+    private SagaContext PrepareDoctorSagaContext(RegisterRequest request, string generatedPassword)
+    {
+        var sagaContext = new SagaContext
+        {
+            SagaName = "DoctorRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        sagaContext.SetData("Role", Role.DOCTOR.ToString());
+        sagaContext.SetData(AuthConstants.SAGA_KEY_EMAIL, request.Email);
+        sagaContext.SetData("Password", generatedPassword);
+        sagaContext.SetData("GeneratedPassword", generatedPassword);
+        sagaContext.SetData("MustChangePassword", "true");
+        sagaContext.SetData(AuthConstants.SAGA_KEY_FULLNAME, request.FullName);
+        sagaContext.SetData("Gender", request.Gender?.ToString());
+        sagaContext.SetData("Address", request.Address);
+
+        SetDoctorProfileData(sagaContext, request);
+
+        return sagaContext;
+    }
+
+    /// <summary>
+    /// Set doctor profile specific data in saga context
+    /// </summary>
+    private void SetDoctorProfileData(SagaContext context, RegisterRequest request)
+    {
+        if (request.DoctorProfile == null) return;
+
+        context.SetData("Bio", request.DoctorProfile.Bio);
+        context.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
+        context.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
+        context.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
+        context.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
+
+        var avatarUrl = request.Gender == Gender.MALE
+            ? _avatarOptions.User.Male
+            : _avatarOptions.User.Female;
+        context.SetData("AvatarUrl", avatarUrl);
+
+        if (request.DoctorProfile.LanguageIds?.Any() == true)
+        {
+            context.SetData("LanguageIds", string.Join(",", request.DoctorProfile.LanguageIds));
+        }
+
+        if (request.DoctorProfile.ServicePrices?.Any() == true)
+        {
+            var pricesJson = System.Text.Json.JsonSerializer.Serialize(
+                request.DoctorProfile.ServicePrices.Select(p => new
+                {
+                    ServiceTypeId = p.ServiceTypeId.ToString(),
+                    Amount = p.Amount
+                })
+            );
+            context.SetData("ServicePrices", pricesJson);
+        }
+    }
+
+    /// <summary>
+    /// Publish doctor credentials event to notification service
+    /// </summary>
+    private async Task PublishDoctorCredentialsAsync(RegisterRequest request, string generatedPassword)
+    {
+        _logger.LogInformation("Doctor registration completed. Generated password will be sent to: {Email}", request.Email);
+
+        try
+        {
+            var credentialsEvent = new DoctorCredentialsGeneratedEvent
+            {
+                Email = request.Email,
+                FullName = request.FullName ?? "Doctor",
+                GeneratedPassword = generatedPassword,
+                HospitalId = request.DoctorProfile?.HospitalId,
+                LoginUrl = $"{_frontendOptions.Admin.BaseUrl}login",
+            };
+
+            await _eventBus.PublishAsync(credentialsEvent);
+            _logger.LogInformation("Published DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+            // Don't throw - registration is successful even if notification fails
+        }
+    }
+
+    /// <summary>
+    /// Validate pagination and sorting parameters
+    /// </summary>
+    /// <param name="pageNumber">Page number</param>
+    /// <param name="pageSize">Page size</param>
+    /// <param name="sortBy">Sort field</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>BadRequest if validation fails, null if valid</returns>
+    private IActionResult? ValidatePaginationAndSorting(int pageNumber, int pageSize, string sortBy, string sortOrder)
+    {
+        // Validate pagination parameters
+        if (pageNumber < 1)
+        {
+            return BadRequest("Page number must be greater than 0");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest("Page size must be between 1 and 100");
+        }
+
+        // Validate sort parameters
+        var validSortFields = new[] { AuthConstants.SAGA_KEY_FULLNAME, AuthConstants.SAGA_KEY_EMAIL, AuthConstants.SORT_FIELD_CREATED_AT, "Status" };
+        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
+        }
+
+        var validSortOrders = new[] { "asc", "desc" };
+        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest("Sort order must be 'asc' or 'desc'");
+        }
+
+        return null; // Validation passed
+    }
+
+    #endregion
+
+    #region Two-Factor Authentication Operations
+
+    /// <summary>
+    /// Generate 2FA setup (QR code and secret key)
+    /// </summary>
+    /// <returns>2FA setup information</returns>
+    [HttpPost("2fa/setup")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Generate2FASetup()
+    {
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.GenerateSetupAsync(accountId);
+        return Success(result, "2FA setup generated successfully");
+    }
+
+    /// <summary>
+    /// Enable 2FA for the authenticated account
+    /// </summary>
+    /// <param name="request">Enable 2FA request with verification code</param>
+    /// <returns>Enable 2FA response with backup codes</returns>
+    [HttpPost("2fa/enable")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Enable2FA([FromBody] Enable2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.Enable2FAAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Disable 2FA for the authenticated account
+    /// </summary>
+    /// <param name="request">Disable 2FA request with password</param>
+    /// <returns>Disable 2FA response</returns>
+    [HttpPost("2fa/disable")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Disable2FA([FromBody] Disable2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.Disable2FAAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Verify 2FA code during login and complete authentication
+    /// </summary>
+    /// <param name="request">Verify 2FA request</param>
+    /// <returns>Authentication response with token if code is valid</returns>
+    [HttpPost("2fa/verify")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Verify2FA([FromBody] Verify2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+        {
+            return BadRequest("Invalid account ID");
+        }
+
+        var result = await _authService.Complete2FALoginAsync(accountId, request.VerificationCode);
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Regenerate backup codes
+    /// </summary>
+    /// <param name="request">Regenerate backup codes request with password</param>
+    /// <returns>New backup codes</returns>
+    [HttpPost("2fa/regenerate-backup-codes")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegenerateBackupCodes([FromBody] RegenerateBackupCodesRequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.RegenerateBackupCodesAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Get 2FA status for the authenticated account
+    /// </summary>
+    /// <returns>2FA status</returns>
+    [HttpGet("2fa/status")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Get2FAStatus()
+    {
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.GetStatusAsync(accountId);
+        return Success(result, "2FA status retrieved successfully");
+    }
+
+    #endregion
+
+}

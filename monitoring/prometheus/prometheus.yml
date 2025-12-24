@@ -1,0 +1,143 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Infrastructure Monitoring
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15672']
+    metrics_path: /api/metrics
+    basic_auth:
+      username: '${RABBITMQ_DEFAULT_USER}'
+      password: '${RABBITMQ_DEFAULT_PASS}'
+
+  # BookingCare Microservices
+  - job_name: 'bookingcare-api-gateway'
+    static_configs:
+      - targets: ['api-gateway:5001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-auth-service'
+    static_configs:
+      - targets: ['auth-service:6003']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-user-service'
+    static_configs:
+      - targets: ['user-service:6016']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-doctor-service'
+    static_configs:
+      - targets: ['doctor-service:6008']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-hospital-service'
+    static_configs:
+      - targets: ['hospital-service:6009']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-appointment-service'
+    static_configs:
+      - targets: ['appointment-service:6002']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-payment-service'
+    static_configs:
+      - targets: ['payment-service:6011']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-discount-service'
+    static_configs:
+      - targets: ['discount-service:6006']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-schedule-service'
+    static_configs:
+      - targets: ['schedule-service:6014']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-servicemedical-service'
+    static_configs:
+      - targets: ['servicemedical-service:6015']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-notification-service'
+    static_configs:
+      - targets: ['notification-service:6010']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-ai-service'
+    static_configs:
+      - targets: ['ai-service:6000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-analytics-service'
+    static_configs:
+      - targets: ['analytics-service:6001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-review-service'
+    static_configs:
+      - targets: ['review-service:6012']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-favorites-service'
+    static_configs:
+      - targets: ['favorites-service:6009']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-saga-service'
+    static_configs:
+      - targets: ['saga-service:6017']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-communication-service'
+    static_configs:
+      - targets: ['communication-service:6013']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-content-service'
+    static_configs:
+      - targets: ['content-service:6005']
+    metrics_path: /metrics
+    scrape_interval: 10s

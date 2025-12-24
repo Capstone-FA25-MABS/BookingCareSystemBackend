@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\payment.proto" GrpcServices="Server" />
+    <Protobuf Include="..\BookingCare.Services.User\Protos\user.proto" GrpcServices="Client">
+      <Link>Protos\user.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\BookingCare.Services.Appointment\Protos\appointment.proto" GrpcServices="Client">
+      <Link>Protos\appointment.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\BookingCare.Services.Hospital\Protos\hospital.proto" GrpcServices="Client">
+      <Link>Protos\hospital.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\BookingCare.Services.Discount\Protos\discount.proto" GrpcServices="Client">
+      <Link>Protos\discount.proto</Link>
+    </Protobuf>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+    <PackageReference Include="payOS" Version="1.0.9" />
+    <PackageReference Include="Stripe.net" Version="50.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="System.Security.Cryptography.Algorithms" Version="4.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.EventBus\BookingCare.Shared.EventBus.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Schedule.Protos";
+
+package schedule;
+
+import "google/protobuf/timestamp.proto";
+
+// The Schedule service definition.
+service ScheduleService {
+  // Get available appointment slots for a doctor on a specific date
+  rpc GetAvailableSlots (GetAvailableSlotsRequest) returns (GetAvailableSlotsResponse);
+  
+  // Get doctor's daily schedule
+  rpc GetDoctorDailySchedule (GetDoctorDailyScheduleRequest) returns (GetDoctorDailyScheduleResponse);
+  
+  // Get doctor's schedule for a date range
+  rpc GetDoctorScheduleRange (GetDoctorScheduleRangeRequest) returns (GetDoctorScheduleRangeResponse);
+  
+  // Create or update doctor's daily schedule
+  rpc CreateOrUpdateDoctorDailySchedule (CreateDoctorDailyScheduleRequest) returns (DoctorDailyScheduleResponse);
+  
+  // Create doctor schedule exception
+  rpc CreateDoctorScheduleException (CreateDoctorScheduleExceptionRequest) returns (DoctorScheduleExceptionResponse);
+  
+  // Get appointment times
+  rpc GetAllAppointmentTimes (GetAllAppointmentTimesRequest) returns (GetAllAppointmentTimesResponse);
+  
+  // Get schedule patterns
+  rpc GetAllSchedulePatterns (GetAllSchedulePatternsRequest) returns (GetAllSchedulePatternsResponse);
+
+  // Check which doctors are working on a specific date and time slot (batch operation)
+  rpc CheckDoctorsWorkingSlot (CheckDoctorsWorkingSlotRequest) returns (CheckDoctorsWorkingSlotResponse);
+}
+
+// Messages for appointment times
+message AppointmentTime {
+  string id = 1; // GUID as string
+  string start_time = 2;
+  string end_time = 3;
+}
+
+// Messages for schedule patterns
+message SchedulePattern {
+  string id = 1; // GUID as string
+  string name = 2;
+  string description = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  repeated AppointmentTime slots = 6;
+}
+
+// Messages for doctor daily schedule
+message DoctorDailySchedule {
+  string id = 1; // GUID as string
+  string doctor_id = 2; // GUID as string
+  string schedule_date = 3; // Format: YYYY-MM-DD
+  string pattern_id = 4; // GUID as string
+  SchedulePattern pattern = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Messages for doctor schedule exceptions
+message DoctorScheduleException {
+  string id = 1; // GUID as string
+  string doctor_id = 2; // GUID as string
+  string exception_date = 3; // Format: YYYY-MM-DD
+  string appointment_time_id = 4; // GUID as string
+  AppointmentTime appointment_time = 5;
+  string exception_type = 6;
+  bool is_available = 7;
+  string reason = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// Request messages
+message GetAvailableSlotsRequest {
+  string doctor_id = 1; // GUID as string
+  string date = 2; // Format: YYYY-MM-DD
+  string service_id = 3; // GUID as string - Optional
+}
+
+message GetDoctorDailyScheduleRequest {
+  string doctor_id = 1; // GUID as string
+  string date = 2; // Format: YYYY-MM-DD
+}
+
+message GetDoctorScheduleRangeRequest {
+  string doctor_id = 1; // GUID as string
+  string start_date = 2; // Format: YYYY-MM-DD
+  string end_date = 3; // Format: YYYY-MM-DD
+}
+
+message CreateDoctorDailyScheduleRequest {
+  string doctor_id = 1; // GUID as string
+  string schedule_date = 2; // Format: YYYY-MM-DD
+  string pattern_id = 3; // GUID as string
+}
+
+message CreateDoctorScheduleExceptionRequest {
+  string doctor_id = 1; // GUID as string
+  string exception_date = 2; // Format: YYYY-MM-DD
+  string appointment_time_id = 3; // GUID as string - Optional, null for full day off
+  string exception_type = 4;
+  bool is_available = 5;
+  string reason = 6;
+}
+
+message GetAllAppointmentTimesRequest {
+  // Empty request
+}
+
+message GetAllSchedulePatternsRequest {
+  // Empty request
+}
+
+// Response messages
+message GetAvailableSlotsResponse {
+  repeated AppointmentTime slots = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetDoctorDailyScheduleResponse {
+  DoctorDailySchedule schedule = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetDoctorScheduleRangeResponse {
+  repeated DoctorDailySchedule schedules = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message DoctorDailyScheduleResponse {
+  DoctorDailySchedule schedule = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message DoctorScheduleExceptionResponse {
+  DoctorScheduleException exception = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetAllAppointmentTimesResponse {
+  repeated AppointmentTime appointment_times = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetAllSchedulePatternsResponse {
+  repeated SchedulePattern patterns = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Request message for checking doctors working slot
+message CheckDoctorsWorkingSlotRequest {
+  repeated string doctor_ids = 1;     // List of doctor IDs to check
+  string date = 2;                    // Format: YYYY-MM-DD
+  string appointment_time_id = 3;     // Appointment time slot ID (GUID as string)
+}
+
+// Doctor working status info
+message DoctorWorkingStatus {
+  string doctor_id = 1;
+  bool is_working = 2;                // True if doctor has schedule for this slot
+}
+
+// Response message for checking doctors working slot
+message CheckDoctorsWorkingSlotResponse {
+  repeated DoctorWorkingStatus doctor_statuses = 1;
+  bool success = 2;
+  string message = 3;
+}

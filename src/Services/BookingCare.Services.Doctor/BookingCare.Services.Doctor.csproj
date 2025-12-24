@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\doctor.proto" GrpcServices="Server" />
+    <Protobuf Include="..\BookingCare.Services.Favorites\Protos\favorite.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Hospital\Protos\hospital.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Review\Protos\ReviewService.proto" GrpcServices="Client" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Data\" />
+    <Folder Include="Exceptions\" />
+    <Folder Include="Enums\" />
+    <Folder Include="Mappings\" />
+    <Folder Include="Middlewares\" />
+    <Folder Include="Models\Entities\" />
+    <Folder Include="Models\DTOs\" />
+    <Folder Include="Repositories\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.FileUpload\BookingCare.Shared.FileUpload.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.EventBus\BookingCare.Shared.EventBus.csproj" />
+  </ItemGroup>
+
+</Project>

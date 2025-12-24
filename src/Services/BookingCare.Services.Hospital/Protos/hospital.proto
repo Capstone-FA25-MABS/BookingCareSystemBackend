@@ -1,0 +1,343 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Hospital";
+
+package hospital;
+
+// The Hospital service definition.
+service HospitalService {
+  // Gets a hospital by ID
+  rpc GetHospital (GetHospitalRequest) returns (HospitalReply);
+  
+  // Gets hospitals by specialty
+  rpc GetHospitalsBySpecialty (GetHospitalsBySpecialtyRequest) returns (HospitalListReply);
+  
+  // Gets all hospitals with basic info (for doctor service)
+  rpc GetHospitalsList (GetHospitalsListRequest) returns (HospitalBasicListReply);
+  
+  // Creates a hospital
+  rpc CreateHospital (CreateHospitalGrpcRequest) returns (HospitalReply);
+
+  // Deletes a hospital
+  rpc DeleteHospital (DeleteHospitalRequest) returns (DeleteHospitalReply);
+
+  // Get hospital basic info (optimized for performance)
+  rpc GetHospitalBasicInfo (GetHospitalBasicInfoRequest) returns (HospitalBasicInfoResponse);
+
+  // Get multiple hospitals basic info (batch operation for performance)
+  rpc GetHospitalsBasicInfo (GetHospitalsBasicInfoRequest) returns (HospitalsBasicInfoResponse);
+  
+  // Get hospital names only (optimized for performance - minimal data transfer)
+  rpc GetHospitalNames (GetHospitalNamesRequest) returns (HospitalNamesResponse);
+  
+  // Get hospitals by account IDs (batch operation for admin management)
+  rpc GetHospitalsByAccountIds (GetHospitalsByAccountIdsRequest) returns (HospitalBatchResponse);
+}
+
+// The Hospital Subscription service definition (for Payment service)
+service HospitalSubscriptionGrpc {
+  // Creates a new hospital subscription
+  rpc CreateHospitalSubscription (CreateHospitalSubscriptionGrpcRequest) returns (HospitalSubscriptionGrpcResponse);
+  
+  // Upgrades an existing hospital subscription to a new plan
+  rpc UpgradeHospitalSubscription (UpgradeHospitalSubscriptionGrpcRequest) returns (HospitalSubscriptionGrpcResponse);
+}
+
+// The Subscription Usage service definition (for Doctor, Specialty, Service, Appointment services)
+service SubscriptionUsageGrpc {
+  // Check if hospital can add more doctors
+  rpc CheckDoctorLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more specialties
+  rpc CheckSpecialtyLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more services
+  rpc CheckServiceLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more appointments
+  rpc CheckAppointmentLimit (CheckAppointmentLimitRequest) returns (CheckLimitResponse);
+  
+  // Increment doctor count after successful creation
+  rpc IncrementDoctorCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement doctor count after deletion
+  rpc DecrementDoctorCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment specialty count after successful creation
+  rpc IncrementSpecialtyCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement specialty count after deletion
+  rpc DecrementSpecialtyCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment service count after successful creation
+  rpc IncrementServiceCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement service count after deletion
+  rpc DecrementServiceCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment appointment count after successful creation
+  rpc IncrementAppointmentCount (IncrementAppointmentRequest) returns (IncrementResponse);
+  
+  // Decrement appointment count after deletion
+  rpc DecrementAppointmentCount (IncrementAppointmentRequest) returns (IncrementResponse);
+  
+  // Get usage information for a hospital
+  rpc GetUsageByHospitalId (GetUsageRequest) returns (SubscriptionUsageGrpcResponse);
+}
+
+// The request message for getting a hospital by ID
+message GetHospitalRequest {
+  string id = 1; // Guid as string
+}
+
+// The request message for getting hospitals by specialty
+message GetHospitalsBySpecialtyRequest {
+  string specialty_id = 1; // Guid as string
+}
+
+// The request message for getting hospitals list (basic info)
+message GetHospitalsListRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+// The request message for creating a hospital
+message CreateHospitalGrpcRequest {
+  string account_id = 1; // Guid as string
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  string description = 6;
+  string background_url = 7;
+  string avatar_url = 8;
+  repeated string specialty_ids = 9; // Guid as string
+}
+
+// The response message containing hospital details
+message HospitalReply {
+  string id = 1; // Guid as string
+  string account_id = 2; // Guid as string
+  string name = 3;
+  string address = 4;
+  string phone = 5;
+  string email = 6;
+  string description = 7;
+  string background_url = 8;
+  string avatar_url = 9;
+  string status = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+// The response message containing basic hospital info
+message HospitalBasicReply {
+  string id = 1; // Guid as string
+  string name = 2;
+  string address = 3;
+}
+
+// The response message containing a list of hospitals
+message HospitalListReply {
+  repeated HospitalReply hospitals = 1;
+  int32 total_count = 2;
+}
+
+// The response message containing a list of basic hospital info
+message HospitalBasicListReply {
+  repeated HospitalBasicReply hospitals = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Request message for getting hospital basic info
+message GetHospitalBasicInfoRequest {
+  string id = 1;
+}
+
+// Request message for getting multiple hospitals basic info
+message GetHospitalsBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for hospital basic info (optimized for performance)
+message HospitalBasicInfoResponse {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  string avatar_url = 6;
+}
+
+// Response message for multiple hospitals basic info
+message HospitalsBasicInfoResponse {
+  repeated HospitalBasicInfoResponse hospitals = 1;
+}
+
+// Request message for getting hospital names only
+message GetHospitalNamesRequest {
+  repeated string ids = 1; // Hospital IDs
+}
+
+// Hospital name info (minimal data for performance)
+message HospitalNameInfo {
+  string id = 1;
+  string name = 2;
+}
+
+// Response message for hospital names
+message HospitalNamesResponse {
+  repeated HospitalNameInfo hospitals = 1;
+}
+
+// Request message for getting hospitals by account IDs
+message GetHospitalsByAccountIdsRequest {
+  repeated string account_ids = 1;
+}
+
+// Basic info for hospital in batch response
+message HospitalBasicInfo {
+  string account_id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string phone = 5;
+  string address = 6;
+}
+
+// Response message for hospitals batch (by account IDs)
+message HospitalBatchResponse {
+  repeated HospitalBasicInfo hospitals = 1;
+}
+
+// The request message for deleting a hospital
+message DeleteHospitalRequest {
+  string id = 1; // Guid as string
+}
+
+// The response message for delete operation
+message DeleteHospitalReply {
+  bool success = 1;
+  string message = 2;
+}
+
+// ==================== Hospital Subscription Messages ====================
+
+// Request message for creating a hospital subscription
+message CreateHospitalSubscriptionGrpcRequest {
+  string hospital_id = 1; // Guid as string
+  string subscription_id = 2; // Guid as string (Subscription Plan ID)
+  string start_date = 3; // ISO 8601 date string
+  string end_date = 4; // ISO 8601 date string
+}
+
+// Request message for upgrading a hospital subscription
+message UpgradeHospitalSubscriptionGrpcRequest {
+  string current_subscription_id = 1; // Guid as string (Current Hospital Subscription ID)
+  string new_subscription_plan_id = 2; // Guid as string (New Subscription Plan ID)
+}
+
+// Response message for hospital subscription operations
+message HospitalSubscriptionGrpcResponse {
+  string hospital_subscription_id = 1; // Guid as string
+  string hospital_id = 2; // Guid as string
+  string subscription_id = 3; // Guid as string (Subscription Plan ID)
+  string start_date = 4; // ISO 8601 date string
+  string end_date = 5; // ISO 8601 date string
+  string status = 6; // SubscriptionStatus enum as string (ACTIVE, PENDING, EXPIRED, CANCELLED, TRIAL)
+  string created_at = 7; // ISO 8601 date string
+  string updated_at = 8; // ISO 8601 date string
+  bool is_active = 9; // Computed field
+  int32 days_remaining = 10; // Computed field
+  HospitalBasicInfoForSubscription hospital = 11; // Optional hospital info
+  SubscriptionPlanInfo subscription_plan = 12; // Optional subscription plan info
+}
+
+// Basic hospital info for subscription response
+message HospitalBasicInfoForSubscription {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+}
+
+// Subscription plan info for subscription response
+message SubscriptionPlanInfo {
+  string id = 1;
+  string name = 2;
+  string billing_cycle = 3; // MONTHLY, QUARTERLY, YEARLY
+  double price = 4;
+  int32 max_doctors = 5;
+  int32 max_appointments = 6;
+  repeated string features = 7;
+}
+
+// ==================== Subscription Usage Messages ====================
+
+// Request message for checking limits
+message CheckLimitRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Request message for checking appointment limit
+message CheckAppointmentLimitRequest {
+  string hospital_id = 1; // Guid as string
+  int32 additional_appointments = 2; // Default: 1
+}
+
+// Response message for checking limits
+message CheckLimitResponse {
+  bool can_add = 1;
+  string hospital_id = 2;
+  string message = 3; // Error message if cannot add
+}
+
+// Request message for increment/decrement operations
+message IncrementRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Request message for increment/decrement appointment operations
+message IncrementAppointmentRequest {
+  string hospital_id = 1; // Guid as string
+  int32 count = 2; // Default: 1
+}
+
+// Response message for increment/decrement operations
+message IncrementResponse {
+  bool success = 1;
+  string message = 2;
+  string hospital_id = 3;
+}
+
+// Request message for getting usage
+message GetUsageRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Response message for subscription usage
+message SubscriptionUsageGrpcResponse {
+  string hospital_id = 1;
+  bool has_active_subscription = 2;
+  string message = 3;
+  string subscription_plan_id = 4;
+  string subscription_plan_name = 5;
+  int32 max_doctors = 6;
+  int32 max_specialties = 7;
+  int32 max_appointments = 8;
+  int32 max_services = 9;
+  int32 current_doctor_count = 10;
+  int32 current_specialty_count = 11;
+  int32 current_appointment_count = 12;
+  int32 current_service_count = 13;
+  double doctor_usage_percentage = 14;
+  double specialty_usage_percentage = 15;
+  double service_usage_percentage = 16;
+  bool is_doctor_limit_exceeded = 17;
+  bool is_specialty_limit_exceeded = 18;
+  bool is_service_limit_exceeded = 19;
+  string subscription_end_date = 20;
+  int32 days_until_expiry = 21;
+}

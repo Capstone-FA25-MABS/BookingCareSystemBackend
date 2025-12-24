@@ -1,0 +1,176 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.User.Protos";
+
+package user;
+
+// The user service definition
+service UserService {
+  // Get user by ID
+  rpc GetUser (GetUserRequest) returns (UserResponse);
+  
+  // Get user by account ID
+  rpc GetUserByAccountId (GetUserByAccountIdRequest) returns (UserResponse);
+  
+  // Create new user
+  rpc CreateUser (CreateUserRequest) returns (UserResponse);
+  
+  // Delete user for Saga compensation
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+  
+  // Batch retrieval for performance optimization
+  rpc GetUsersByAccountIds (GetUsersByAccountIdsRequest) returns (UserBatchResponse);
+  
+  // Get basic user info (optimized for performance)
+  rpc GetUserBasicInfo (GetUserBasicInfoRequest) returns (UserBasicInfoResponse);
+  
+  // Get multiple users basic info (batch operation for performance)
+  rpc GetUsersBasicInfo (GetUsersBasicInfoRequest) returns (UsersBasicInfoResponse);
+  
+  // Get user display info for reviews (consistent format with AuthService)
+  rpc GetUserDisplayInfo (GetUserDisplayInfoRequest) returns (UserDisplayInfoResponse);
+  
+  // Get multiple users display info for reviews (batch operation with consistent format)
+  rpc GetUsersDisplayInfo (GetUsersDisplayInfoRequest) returns (UsersDisplayInfoResponse);
+  
+  // Get relatives basic info by IDs (for appointment enrichment)
+  rpc GetRelativesBasicInfo (GetRelativesBasicInfoRequest) returns (RelativesBasicInfoResponse);
+}
+
+// Request messages
+message GetUserRequest {
+  string id = 1;
+}
+
+message GetUserByAccountIdRequest {
+  string account_id = 1;
+}
+
+message CreateUserRequest {
+  string account_id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string gender = 5;
+  string date_of_birth = 6; // ISO 8601 format (yyyy-MM-dd)
+  string address = 7;
+  string phone = 8;
+  string avatar_url = 9;
+}
+
+// Request message for batch user retrieval
+message GetUsersByAccountIdsRequest {
+  repeated string account_ids = 1;
+}
+
+// Response messages
+message UserResponse {
+  string id = 1;
+  string account_id = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string full_name = 6;
+  string gender = 7;
+  string date_of_birth = 8; // ISO 8601 format (yyyy-MM-dd)
+  string address = 9;
+  string phone = 10;
+  string avatar_url = 11;
+}
+
+// Lightweight user information for performance optimization
+message UserBasicInfo {
+  string account_id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string address = 5;
+  string phone = 6;
+}
+
+// Response message for batch user retrieval
+message UserBatchResponse {
+  repeated UserBasicInfo users = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Request message for basic user info
+message GetUserBasicInfoRequest {
+  string id = 1;
+}
+
+// Response message for basic user info (optimized for performance)
+message UserBasicInfoResponse {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string avatar_url = 6;
+}
+
+// Request message for getting multiple users basic info
+message GetUsersBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for multiple users basic info
+message UsersBasicInfoResponse {
+  repeated UserBasicInfoResponse users = 1;
+}
+
+// NEW: Request message for user display info (consistent format with AuthService)
+message GetUserDisplayInfoRequest {
+  string id = 1;
+}
+
+// NEW: Response message for user display info (matches AuthService AccountInfo format)
+message UserDisplayInfoResponse {
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  bool found = 5;
+}
+
+// NEW: Request message for getting multiple users display info
+message GetUsersDisplayInfoRequest {
+  repeated string ids = 1;
+}
+
+// NEW: Response message for multiple users display info
+message UsersDisplayInfoResponse {
+  repeated UserDisplayInfoResponse users = 1;
+}
+
+// Request message for getting relatives basic info by IDs
+message GetRelativesBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for relative basic info
+message RelativeBasicInfoResponse {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string full_name = 4;
+  string gender = 5;
+  string date_of_birth = 6; // ISO 8601 format (yyyy-MM-dd)
+  string phone = 7;
+  string relationship = 8;
+  string relationship_display = 9;
+  bool found = 10;
+}
+
+// Response message for multiple relatives basic info
+message RelativesBasicInfoResponse {
+  repeated RelativeBasicInfoResponse relatives = 1;
+}

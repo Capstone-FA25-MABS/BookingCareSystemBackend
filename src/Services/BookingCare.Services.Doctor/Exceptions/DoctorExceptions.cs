@@ -1,0 +1,136 @@
+using System.Net;
+using BookingCare.Shared.Common.Exceptions;
+
+namespace BookingCare.Services.Doctor.Exceptions;
+
+public class DoctorException : BookingCareException
+{
+    public DoctorException(
+        string message,
+        string errorCode = "DOCTOR_ERROR",
+        HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
+        Exception? innerException = null,
+        Dictionary<string, object>? details = null)
+        : base(message, errorCode, statusCode, innerException, details)
+    {
+    }
+}
+
+// Doctor Exceptions
+public class DoctorNotFoundException : NotFoundException
+{
+    public DoctorNotFoundException(string message)
+        : base(message, "DOCTOR_NOT_FOUND")
+    {
+    }
+
+    public static DoctorNotFoundException WithId(Guid doctorId)
+    {
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với ID '{doctorId}'.");
+        exception.Details["DoctorId"] = doctorId;
+        return exception;
+    }
+
+    public static DoctorNotFoundException WithEmail(string email)
+    {
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với email '{email}'.");
+        exception.Details["Email"] = email;
+        return exception;
+    }
+
+    public static DoctorNotFoundException WithAccountId(Guid accountId)
+    {
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với tài khoản ID '{accountId}'.");
+        exception.Details["AccountId"] = accountId;
+        return exception;
+    }
+}
+
+public class DoctorValidationException : ValidationException
+{
+    public DoctorValidationException(string message)
+        : base(message, null, "DOCTOR_VALIDATION_ERROR")
+    {
+    }
+
+    public DoctorValidationException(List<ValidationError> validationErrors)
+        : base("Xác thực bác sĩ thất bại", validationErrors, "DOCTOR_VALIDATION_ERROR")
+    {
+    }
+}
+
+public class DoctorBusinessException : BusinessException
+{
+    public DoctorBusinessException(string message)
+        : base(message, "DOCTOR_BUSINESS_ERROR")
+    {
+    }
+}
+
+public class DoctorConflictException : ConflictException
+{
+    public DoctorConflictException(string message)
+        : base(message, "DOCTOR_CONFLICT")
+    {
+    }
+
+    public static DoctorConflictException WithEmail(string email)
+    {
+        var exception = new DoctorConflictException($"Email '{email}' đã tồn tại trong hệ thống. Vui lòng sử dụng email khác.");
+        exception.Details["Email"] = email;
+        return exception;
+    }
+
+    public static DoctorConflictException WithAccountId(Guid accountId)
+    {
+        var exception = new DoctorConflictException($"Tài khoản với ID '{accountId}' đã tồn tại.");
+        exception.Details["AccountId"] = accountId;
+        return exception;
+    }
+}
+
+// DoctorPrice Exceptions
+public class DoctorPriceNotFoundException : NotFoundException
+{
+    public DoctorPriceNotFoundException(string message)
+        : base(message, "DOCTOR_PRICE_NOT_FOUND")
+    {
+    }
+
+    public static DoctorPriceNotFoundException WithIds(Guid doctorId, Guid priceId)
+    {
+        var exception = new DoctorPriceNotFoundException($"Doctor price relationship not found for doctor ID '{doctorId}' and price ID '{priceId}'.");
+        exception.Details["DoctorId"] = doctorId;
+        exception.Details["PriceId"] = priceId;
+        return exception;
+    }
+}
+
+public class DoctorPriceConflictException : ConflictException
+{
+    public DoctorPriceConflictException(string message)
+        : base(message, "DOCTOR_PRICE_CONFLICT")
+    {
+    }
+
+    public static DoctorPriceConflictException WithIds(Guid doctorId, Guid priceId)
+    {
+        var exception = new DoctorPriceConflictException($"Mối quan hệ giá bác sĩ đã tồn tại cho bác sĩ ID '{doctorId}' và giá ID '{priceId}'.");
+        exception.Details["DoctorId"] = doctorId;
+        exception.Details["PriceId"] = priceId;
+        return exception;
+    }
+}
+
+public class DoctorPriceValidationException : ValidationException
+{
+    public DoctorPriceValidationException(string message)
+        : base(message, null, "DOCTOR_PRICE_VALIDATION_ERROR")
+    {
+    }
+
+    public DoctorPriceValidationException(List<ValidationError> validationErrors)
+        : base("Xác thực giá bác sĩ thất bại", validationErrors, "DOCTOR_PRICE_VALIDATION_ERROR")
+    {
+    }
+}
