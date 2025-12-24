@@ -234,6 +234,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             {
                 resp.Doctors.Add(new Protos.DoctorBasicInfo
                 {
+                    Id = d.Id.ToString(),
                     AccountId = d.AccountId.ToString(),
                     Email = d.Email,
                     FullName = d.FullName,
@@ -797,6 +798,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             {
                 response.Doctors.Add(new Protos.DoctorBasicInfo
                 {
+                    Id = doctor.Id.ToString(),
                     AccountId = doctor.AccountId.ToString(),
                     Email = doctor.Email,
                     FullName = doctor.FullName,
