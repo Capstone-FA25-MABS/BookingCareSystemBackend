@@ -25,6 +25,9 @@ public interface IScheduleRepository
     Task<DoctorScheduleExceptionEntity> UpdateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception);
     Task<IEnumerable<DoctorScheduleExceptionEntity>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null);
 
+    // Get all exceptions for a specific doctor (all statuses)
+    Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsByDoctorIdAsync(Guid doctorId);
+
     // ClinicException operations
     Task<IEnumerable<ClinicExceptionEntity>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
     Task<ClinicExceptionEntity> CreateClinicExceptionAsync(ClinicExceptionEntity exception);
@@ -61,4 +64,16 @@ public interface IScheduleRepository
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTime>> GetServiceMedicalAvailableSlotsAsync(Guid serviceMedicalId, DateOnly date);
+
+    // List doctor schedules by doctor IDs with date range
+    Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorSchedulesByDoctorIdsAsync(
+        List<Guid> doctorIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null);
+
+    // List service medical schedules by service medical IDs with date range
+    Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalSchedulesByServiceMedicalIdsAsync(
+        List<Guid> serviceMedicalIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null);
 }

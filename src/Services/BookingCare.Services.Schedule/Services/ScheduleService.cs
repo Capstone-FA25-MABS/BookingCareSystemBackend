@@ -219,9 +219,79 @@ public class ScheduleService : IScheduleService
         return _mapper.Map<DoctorScheduleExceptionDto>(updated);
     }
 
-    public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null)
+    public async Task<IEnumerable<DoctorScheduleExceptionWithInfoDto>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null)
     {
         var entities = await _repository.GetPendingDoctorExceptionRequestsAsync(hospitalId, doctorId);
+        var baseDtos = _mapper.Map<List<DoctorScheduleExceptionDto>>(entities);
+
+        // Get unique doctor IDs
+        var doctorIds = baseDtos.Select(e => e.DoctorId).Distinct().ToList();
+        if (doctorIds.Count == 0)
+        {
+            return new List<DoctorScheduleExceptionWithInfoDto>();
+        }
+
+        // Fetch doctor info via gRPC
+        var doctorInfoMap = new Dictionary<Guid, (string Name, string? AvatarUrl, string? Email)>();
+        try
+        {
+            var grpcRequest = new GetDoctorsBasicInfoRequest();
+            grpcRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
+
+            var grpcResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(grpcRequest);
+
+            foreach (var doctor in grpcResponse.Doctors)
+            {
+                if (Guid.TryParse(doctor.Id, out var docId))
+                {
+                    doctorInfoMap[docId] = (doctor.FullName, doctor.AvatarUrl, doctor.Email);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch doctor info via gRPC for exception requests");
+        }
+
+        // Map to DTOs with doctor info
+        var result = baseDtos.Select(dto =>
+        {
+            var withInfo = new DoctorScheduleExceptionWithInfoDto
+            {
+                Id = dto.Id,
+                DoctorId = dto.DoctorId,
+                ExceptionDate = dto.ExceptionDate,
+                AppointmentTime = dto.AppointmentTime,
+                ExceptionType = dto.ExceptionType,
+                IsAvailable = dto.IsAvailable,
+                Reason = dto.Reason,
+                Status = dto.Status,
+                ReviewedBy = dto.ReviewedBy,
+                ReviewedAt = dto.ReviewedAt,
+                ReviewComments = dto.ReviewComments,
+                CreatedAt = dto.CreatedAt
+            };
+
+            if (doctorInfoMap.TryGetValue(dto.DoctorId, out var info))
+            {
+                withInfo.DoctorName = info.Name;
+                withInfo.DoctorAvatarUrl = info.AvatarUrl;
+                withInfo.DoctorEmail = info.Email;
+            }
+            else
+            {
+                withInfo.DoctorName = "Không xác định";
+            }
+
+            return withInfo;
+        }).ToList();
+
+        return result;
+    }
+
+    public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsByDoctorIdAsync(Guid doctorId)
+    {
+        var entities = await _repository.GetDoctorExceptionsByDoctorIdAsync(doctorId);
         return _mapper.Map<List<DoctorScheduleExceptionDto>>(entities);
     }
 
@@ -1158,5 +1228,229 @@ public class ScheduleService : IScheduleService
     }
 
     #endregion
-}
 
+    #region List Doctor Schedules by Hospital
+
+    /// <summary>
+    /// List doctor schedules by hospital for Staff management
+    /// Gets all doctors of the hospital via gRPC, then fetches their schedules
+    /// </summary>
+    public async Task<ListDoctorSchedulesResponseDto> ListDoctorSchedulesByHospitalAsync(ListDoctorSchedulesRequest request)
+    {
+        var response = new ListDoctorSchedulesResponseDto
+        {
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize,
+            Items = new List<DoctorScheduleWithInfoDto>(),
+            TotalCount = 0
+        };
+
+        // If hospitalId is not provided, return empty
+        if (!request.HospitalId.HasValue)
+        {
+            _logger.LogWarning("ListDoctorSchedulesByHospitalAsync called without hospitalId");
+            return response;
+        }
+
+        try
+        {
+            // Step 1: Get all doctors of the hospital via gRPC
+            var getDoctorsRequest = new BookingCare.Services.Doctor.Protos.GetDoctorsByHospitalIdRequest
+            {
+                HospitalId = request.HospitalId.Value.ToString()
+            };
+
+            var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsByHospitalIdAsync(getDoctorsRequest);
+
+            if (doctorsResponse.Doctors.Count == 0)
+            {
+                _logger.LogInformation("No doctors found for hospital {HospitalId}", request.HospitalId);
+                return response;
+            }
+
+            // Create doctor info lookup using Doctor.Id (not AccountId)
+            var doctorInfoMap = doctorsResponse.Doctors.ToDictionary(
+                d => Guid.Parse(d.Id),
+                d => new { d.FullName, d.AvatarUrl, d.Email }
+            );
+
+            var doctorIds = doctorInfoMap.Keys.ToList();
+
+            _logger.LogInformation("Found {Count} doctors for hospital {HospitalId}: {DoctorIds}",
+                doctorIds.Count, request.HospitalId, string.Join(", ", doctorIds));
+
+            // If specific doctorId is provided, filter to only that doctor
+            if (request.DoctorId.HasValue)
+            {
+                if (!doctorIds.Contains(request.DoctorId.Value))
+                {
+                    _logger.LogWarning("Doctor {DoctorId} not found in hospital {HospitalId}",
+                        request.DoctorId, request.HospitalId);
+                    return response;
+                }
+                doctorIds = new List<Guid> { request.DoctorId.Value };
+            }
+
+            // Step 2: Get schedules for all doctors
+            var startDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var endDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1));
+
+            var schedules = await _repository.GetDoctorSchedulesByDoctorIdsAsync(
+                doctorIds, startDate, endDate);
+
+            var scheduleList = schedules.ToList();
+            response.TotalCount = scheduleList.Count;
+
+            // Step 3: Apply pagination
+            var pagedSchedules = scheduleList
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Step 4: Map to DTOs with doctor info
+            response.Items = pagedSchedules.Select(s =>
+            {
+                var doctorInfo = doctorInfoMap.GetValueOrDefault(s.DoctorId);
+                return new DoctorScheduleWithInfoDto
+                {
+                    Id = s.Id,
+                    DoctorId = s.DoctorId,
+                    DoctorName = doctorInfo?.FullName ?? "Unknown",
+                    DoctorAvatarUrl = doctorInfo?.AvatarUrl,
+                    DoctorEmail = doctorInfo?.Email,
+                    ScheduleDate = s.ScheduleDate,
+                    SchedulePatterns = s.SchedulePatterns,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt
+                };
+            }).ToList();
+
+            _logger.LogInformation(
+                "Listed {Count} schedules for hospital {HospitalId} (page {Page}/{TotalPages})",
+                response.Items.Count, request.HospitalId, request.PageNumber,
+                (int)Math.Ceiling((double)response.TotalCount / request.PageSize));
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing doctor schedules for hospital {HospitalId}", request.HospitalId);
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region List Service Medical Schedules by Hospital
+
+    /// <summary>
+    /// List service medical schedules by hospital for Staff management
+    /// Gets all service medicals of the hospital via gRPC, then fetches their schedules
+    /// </summary>
+    public async Task<ListServiceMedicalSchedulesResponseDto> ListServiceMedicalSchedulesByHospitalAsync(ListServiceMedicalSchedulesRequest request)
+    {
+        var response = new ListServiceMedicalSchedulesResponseDto
+        {
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize,
+            Items = new List<ServiceMedicalScheduleWithInfoDto>(),
+            TotalCount = 0
+        };
+
+        // If hospitalId is not provided, return empty
+        if (!request.HospitalId.HasValue)
+        {
+            _logger.LogWarning("ListServiceMedicalSchedulesByHospitalAsync called without hospitalId");
+            return response;
+        }
+
+        try
+        {
+            // Step 1: Get all service medicals of the hospital via gRPC
+            var getServicesRequest = new BookingCare.Services.ServiceMedical.Protos.GetServicesByHospitalGrpcRequest
+            {
+                HospitalId = request.HospitalId.Value.ToString(),
+                IncludeInactive = false
+            };
+
+            var servicesResponse = await _grpcClients.ServiceMedicalClient.GetServicesByHospitalAsync(getServicesRequest);
+
+            if (servicesResponse.Services.Count == 0)
+            {
+                _logger.LogInformation("No service medicals found for hospital {HospitalId}", request.HospitalId);
+                return response;
+            }
+
+            // Create service medical info lookup
+            var serviceMedicalInfoMap = servicesResponse.Services.ToDictionary(
+                s => Guid.Parse(s.Id),
+                s => new { s.Name, s.ImageUrl, CategoryName = s.ServiceCategory?.Name }
+            );
+
+            var serviceMedicalIds = serviceMedicalInfoMap.Keys.ToList();
+
+            _logger.LogInformation("Found {Count} service medicals for hospital {HospitalId}",
+                serviceMedicalIds.Count, request.HospitalId);
+
+            // If specific serviceMedicalId is provided, filter to only that service
+            if (request.ServiceMedicalId.HasValue)
+            {
+                if (!serviceMedicalIds.Contains(request.ServiceMedicalId.Value))
+                {
+                    _logger.LogWarning("Service medical {ServiceMedicalId} not found in hospital {HospitalId}",
+                        request.ServiceMedicalId, request.HospitalId);
+                    return response;
+                }
+                serviceMedicalIds = new List<Guid> { request.ServiceMedicalId.Value };
+            }
+
+            // Step 2: Get schedules for all service medicals
+            var startDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var endDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1));
+
+            var schedules = await _repository.GetServiceMedicalSchedulesByServiceMedicalIdsAsync(
+                serviceMedicalIds, startDate, endDate);
+
+            var scheduleList = schedules.ToList();
+            response.TotalCount = scheduleList.Count;
+
+            // Step 3: Apply pagination
+            var pagedSchedules = scheduleList
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Step 4: Map to DTOs with service medical info
+            response.Items = pagedSchedules.Select(s =>
+            {
+                var serviceMedicalInfo = serviceMedicalInfoMap.GetValueOrDefault(s.ServiceMedicalId);
+                return new ServiceMedicalScheduleWithInfoDto
+                {
+                    Id = s.Id,
+                    ServiceMedicalId = s.ServiceMedicalId,
+                    ServiceMedicalName = serviceMedicalInfo?.Name ?? "Unknown",
+                    ServiceMedicalImageUrl = serviceMedicalInfo?.ImageUrl,
+                    ServiceCategoryName = serviceMedicalInfo?.CategoryName,
+                    ScheduleDate = s.ScheduleDate,
+                    SchedulePatterns = s.SchedulePatterns,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt
+                };
+            }).ToList();
+
+            _logger.LogInformation(
+                "Listed {Count} service medical schedules for hospital {HospitalId} (page {Page}/{TotalPages})",
+                response.Items.Count, request.HospitalId, request.PageNumber,
+                (int)Math.Ceiling((double)response.TotalCount / request.PageSize));
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing service medical schedules for hospital {HospitalId}", request.HospitalId);
+            throw;
+        }
+    }
+
+    #endregion
+}

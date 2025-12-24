@@ -1358,6 +1358,7 @@ public class DoctorService : BaseService, IDoctorService
             result.Add(
                 new DoctorBasicInfoResponse
                 {
+                    Id = d.Id,
                     AccountId = d.AccountId,
                     Email = d.Email,
                     FullName = $"{d.FirstName} {d.LastName}".Trim(),

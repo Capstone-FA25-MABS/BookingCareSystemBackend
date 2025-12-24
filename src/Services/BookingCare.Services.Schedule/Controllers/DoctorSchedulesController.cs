@@ -1,5 +1,4 @@
 using BookingCare.Services.Schedule.Models.Requests;
-using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
@@ -119,35 +118,9 @@ public class DoctorSchedulesController : BaseApiController
     public async Task<IActionResult> ListDoctorSchedules(
         [FromQuery] ListDoctorSchedulesRequest request)
     {
-        // Implementation would be in service layer
-        // This endpoint allows filtering by doctorId, hospitalId, date range
-        // Returns paginated results
-        
-        // For now, if doctorId is provided, use existing range endpoint
-        if (request.DoctorId.HasValue)
-        {
-            var schedules = await _scheduleService.GetDoctorScheduleRangeAsync(new GetDoctorScheduleRequest
-            {
-                DoctorId = request.DoctorId.Value,
-                StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1))
-            });
+        // Use the new service method that supports hospitalId filtering
+        var result = await _scheduleService.ListDoctorSchedulesByHospitalAsync(request);
 
-            return Success(new
-            {
-                items = schedules,
-                totalCount = schedules.Count(),
-                pageNumber = request.PageNumber,
-                pageSize = request.PageSize
-            }, "Doctor schedules retrieved successfully");
-        }
-
-        return Success(new
-        {
-            items = new List<DoctorDailyScheduleDto>(),
-            totalCount = 0,
-            pageNumber = request.PageNumber,
-            pageSize = request.PageSize
-        }, "No doctor ID provided");
+        return Success(result, "Doctor schedules retrieved successfully");
     }
 }

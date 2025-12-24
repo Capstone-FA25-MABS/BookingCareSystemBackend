@@ -75,7 +75,9 @@ public class ScheduleRepository : IScheduleRepository
     public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date)
     {
         return await _context.DoctorScheduleExceptions
-            .Where(x => x.DoctorId == doctorId && x.ExceptionDate == date)
+            .Where(x => x.DoctorId == doctorId
+                && x.ExceptionDate == date
+                && x.Status == ExceptionRequestStatus.APPROVED)
             .ToListAsync();
     }
 
@@ -131,6 +133,14 @@ public class ScheduleRepository : IScheduleRepository
 
         return await query
             .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsByDoctorIdAsync(Guid doctorId)
+    {
+        return await _context.DoctorScheduleExceptions
+            .Where(x => x.DoctorId == doctorId)
+            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
 
@@ -235,9 +245,11 @@ public class ScheduleRepository : IScheduleRepository
             .Where(s => doctorIds.Contains(s.DoctorId) && s.ScheduleDate == date)
             .ToListAsync();
 
-        // Step 2: Batch query all doctor exceptions for the date
+        // Step 2: Batch query all doctor exceptions for the date (only APPROVED exceptions)
         var doctorExceptions = await _context.DoctorScheduleExceptions
-            .Where(e => doctorIds.Contains(e.DoctorId) && e.ExceptionDate == date)
+            .Where(e => doctorIds.Contains(e.DoctorId)
+                && e.ExceptionDate == date
+                && e.Status == ExceptionRequestStatus.APPROVED)
             .ToListAsync();
 
         // Group by doctor for efficient lookup
@@ -430,7 +442,9 @@ public class ScheduleRepository : IScheduleRepository
     public async Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date)
     {
         return await _context.ServiceMedicalScheduleExceptions
-            .Where(x => x.ServiceMedicalId == serviceMedicalId && x.ExceptionDate == date)
+            .Where(x => x.ServiceMedicalId == serviceMedicalId
+                && x.ExceptionDate == date
+                && x.Status == ExceptionRequestStatus.APPROVED)
             .ToListAsync();
     }
 
@@ -548,6 +562,62 @@ public class ScheduleRepository : IScheduleRepository
                 availableSlots.Add(exception.AppointmentTime.Value);
             }
         }
+    }
+
+    #endregion
+
+    #region List Doctor Schedules by Doctor IDs
+
+    public async Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorSchedulesByDoctorIdsAsync(
+        List<Guid> doctorIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null)
+    {
+        var query = _context.DoctorDailySchedules
+            .Where(x => doctorIds.Contains(x.DoctorId));
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(x => x.ScheduleDate >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(x => x.ScheduleDate <= endDate.Value);
+        }
+
+        return await query
+            .OrderBy(x => x.ScheduleDate)
+            .ThenBy(x => x.DoctorId)
+            .ToListAsync();
+    }
+
+    #endregion
+
+    #region List Service Medical Schedules by Service Medical IDs
+
+    public async Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalSchedulesByServiceMedicalIdsAsync(
+        List<Guid> serviceMedicalIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null)
+    {
+        var query = _context.ServiceMedicalDailySchedules
+            .Where(x => serviceMedicalIds.Contains(x.ServiceMedicalId));
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(x => x.ScheduleDate >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(x => x.ScheduleDate <= endDate.Value);
+        }
+
+        return await query
+            .OrderBy(x => x.ScheduleDate)
+            .ThenBy(x => x.ServiceMedicalId)
+            .ToListAsync();
     }
 
     #endregion
