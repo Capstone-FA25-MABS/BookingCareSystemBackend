@@ -54,8 +54,88 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _fileUploadHelper = fileUploadHelper;
         _cacheService = cacheService;
         _keywordExtractor = keywordExtractor;
-        _tesseractDataPath = configuration["Tesseract:DataPath"] ?? "tessdata";
+        
+        // Get DataPath from config, with fallback to TESSDATA_PREFIX env or default
+        var configuredPath = configuration["Tesseract:DataPath"];
+        var envTessdataPrefix = Environment.GetEnvironmentVariable("TESSDATA_PREFIX");
+        
+        // Use TESSDATA_PREFIX if configured path is relative or doesn't exist
+        if (!string.IsNullOrEmpty(configuredPath) && Path.IsPathRooted(configuredPath) && Directory.Exists(configuredPath))
+        {
+            _tesseractDataPath = configuredPath;
+        }
+        else if (!string.IsNullOrEmpty(envTessdataPrefix) && Directory.Exists(envTessdataPrefix))
+        {
+            _tesseractDataPath = envTessdataPrefix;
+            _logger.LogWarning("Using TESSDATA_PREFIX environment variable as DataPath config is invalid: {ConfigPath}", configuredPath);
+        }
+        else
+        {
+            _tesseractDataPath = "/usr/share/tesseract-ocr/tessdata";
+            _logger.LogWarning("Using default tessdata path as both config and env are invalid");
+        }
+        
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
+        
+        // Log Tesseract configuration with more details
+        _logger.LogInformation("=== Tesseract Configuration ===");
+        _logger.LogInformation("DataPath: {DataPath}", _tesseractDataPath);
+        _logger.LogInformation("Language: {Language}", _tesseractLanguage);
+        _logger.LogInformation("TESSDATA_PREFIX env: {TessDataPrefix}", Environment.GetEnvironmentVariable("TESSDATA_PREFIX"));
+        _logger.LogInformation("Current Directory: {CurrentDir}", Directory.GetCurrentDirectory());
+        
+        // Check if tessdata directory exists
+        if (Directory.Exists(_tesseractDataPath))
+        {
+            _logger.LogInformation("✅ Tessdata directory EXISTS");
+            try
+            {
+                var trainedDataFiles = Directory.GetFiles(_tesseractDataPath, "*.traineddata");
+                _logger.LogInformation("Found {Count} traineddata files:", trainedDataFiles.Length);
+                foreach (var file in trainedDataFiles)
+                {
+                    var fileInfo = new FileInfo(file);
+                    _logger.LogInformation("  - {FileName} ({Size} bytes)", Path.GetFileName(file), fileInfo.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing traineddata files");
+            }
+        }
+        else
+        {
+            _logger.LogError("❌ Tessdata directory does NOT exist: {Path}", _tesseractDataPath);
+            
+            // Try to find tessdata in common locations
+            var commonPaths = new[]
+            {
+                "/usr/share/tesseract-ocr/tessdata",
+                "/usr/share/tesseract-ocr/4.00/tessdata",
+                "/usr/share/tesseract-ocr/5/tessdata",
+                "/app/tessdata",
+                "/usr/local/share/tessdata"
+            };
+            
+            _logger.LogInformation("Checking common tessdata locations:");
+            foreach (var path in commonPaths)
+            {
+                var exists = Directory.Exists(path);
+                _logger.LogInformation("  {Status} {Path}", exists ? "✅" : "❌", path);
+                if (exists)
+                {
+                    try
+                    {
+                        var files = Directory.GetFiles(path, "*.traineddata");
+                        _logger.LogInformation("    Found {Count} files: {Files}", 
+                            files.Length, 
+                            string.Join(", ", files.Select(f => Path.GetFileName(f))));
+                    }
+                    catch { }
+                }
+            }
+        }
+        _logger.LogInformation("==============================");
     }
 
     public async Task<LabResultAnalysisResponse> AnalyzeLabResultAsync(
@@ -141,6 +221,35 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    private void VerifyTesseractSetup()
+    {
+        _logger.LogInformation("🔍 Verifying Tesseract setup...");
+        
+        // Check directory
+        if (!Directory.Exists(_tesseractDataPath))
+        {
+            throw new InvalidOperationException($"Tesseract data directory not found: {_tesseractDataPath}");
+        }
+        
+        // Check for language files
+        var languages = _tesseractLanguage.Split('+');
+        foreach (var lang in languages)
+        {
+            var langFile = Path.Combine(_tesseractDataPath, $"{lang}.traineddata");
+            if (!File.Exists(langFile))
+            {
+                _logger.LogError("❌ Missing language file: {LangFile}", langFile);
+                throw new InvalidOperationException($"Tesseract language file not found: {langFile}. Available files: {string.Join(", ", Directory.GetFiles(_tesseractDataPath, "*.traineddata").Select(f => Path.GetFileName(f)))}");
+            }
+            else
+            {
+                _logger.LogInformation("✅ Language file exists: {LangFile}", langFile);
+            }
+        }
+        
+        _logger.LogInformation("✅ Tesseract setup verified successfully");
+    }
+
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -161,6 +270,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         try
         {
             _logger.LogInformation("Starting PDF OCR extraction from file: {FileName}", file.FileName);
+            
+            // Verify Tesseract is properly configured before processing
+            VerifyTesseractSetup();
 
             // Save PDF to temp
             using (var stream = new FileStream(tempPdfPath, FileMode.Create))
@@ -169,6 +281,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             }
 
             return await ExtractTextFromPdfFileAsync(tempPdfPath);
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw configuration errors as-is
+            throw;
         }
         catch (Exception ex)
         {
@@ -261,6 +378,25 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                             }
                         }
 
+                        // Debug logging for Tesseract configuration
+                        _logger.LogInformation("🔍 Tesseract Debug Info:");
+                        _logger.LogInformation("  - DataPath: {DataPath}", _tesseractDataPath);
+                        _logger.LogInformation("  - Language: {Language}", _tesseractLanguage);
+                        _logger.LogInformation("  - TESSDATA_PREFIX env: {TessDataPrefix}", Environment.GetEnvironmentVariable("TESSDATA_PREFIX"));
+                        _logger.LogInformation("  - Directory exists: {Exists}", Directory.Exists(_tesseractDataPath));
+                        
+                        if (Directory.Exists(_tesseractDataPath))
+                        {
+                            var files = Directory.GetFiles(_tesseractDataPath, "*.traineddata");
+                            _logger.LogInformation("  - Found {Count} traineddata files: {Files}", 
+                                files.Length, 
+                                string.Join(", ", files.Select(f => Path.GetFileName(f))));
+                        }
+                        else
+                        {
+                            _logger.LogError("  - ❌ Tessdata directory does NOT exist!");
+                        }
+
                         // OCR the image with better error handling
                         using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
 
@@ -288,6 +424,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     {
                         failedPages++;
                         _logger.LogError(ex, "❌ Error processing page {PageNumber}: {Message}", i + 1, ex.Message);
+                        
+                        // Log additional debug info for TesseractException
+                        if (ex is Tesseract.TesseractException)
+                        {
+                            _logger.LogError("Tesseract Error Details:");
+                            _logger.LogError("  - DataPath used: {DataPath}", _tesseractDataPath);
+                            _logger.LogError("  - Language used: {Language}", _tesseractLanguage);
+                            _logger.LogError("  - TESSDATA_PREFIX: {TessDataPrefix}", Environment.GetEnvironmentVariable("TESSDATA_PREFIX"));
+                            _logger.LogError("  - Working Directory: {WorkingDir}", Directory.GetCurrentDirectory());
+                        }
+                        
                         // Continue with next page instead of failing completely
                     }
                     finally
@@ -382,6 +529,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         try
         {
             _logger.LogInformation("Starting image OCR extraction from file: {FileName}", file.FileName);
+            
+            // Verify Tesseract is properly configured before processing
+            VerifyTesseractSetup();
 
             // Save file to temporary location
             using (var stream = new FileStream(tempFilePath, FileMode.Create))
@@ -390,6 +540,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             }
 
             return ExtractTextFromImagePath(tempFilePath);
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw configuration errors as-is
+            throw;
         }
         catch (Exception ex)
         {
@@ -410,6 +565,25 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     {
         try
         {
+            // Debug logging for Tesseract configuration
+            _logger.LogInformation("🔍 Tesseract Debug Info (Image OCR):");
+            _logger.LogInformation("  - DataPath: {DataPath}", _tesseractDataPath);
+            _logger.LogInformation("  - Language: {Language}", _tesseractLanguage);
+            _logger.LogInformation("  - TESSDATA_PREFIX env: {TessDataPrefix}", Environment.GetEnvironmentVariable("TESSDATA_PREFIX"));
+            _logger.LogInformation("  - Directory exists: {Exists}", Directory.Exists(_tesseractDataPath));
+            
+            if (Directory.Exists(_tesseractDataPath))
+            {
+                var files = Directory.GetFiles(_tesseractDataPath, "*.traineddata");
+                _logger.LogInformation("  - Found {Count} traineddata files: {Files}", 
+                    files.Length, 
+                    string.Join(", ", files.Select(f => Path.GetFileName(f))));
+            }
+            else
+            {
+                _logger.LogError("  - ❌ Tessdata directory does NOT exist!");
+            }
+
             // Perform OCR using Tesseract
             using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
 
