@@ -621,19 +621,21 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for multiple doctors in a single query
+    /// Helper method to get batch statistics for a list of entity IDs
     /// </summary>
-    public async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(
-        List<Guid> doctorIds,
+    private async Task<Dictionary<Guid, ReviewStatisticsResponse>> GetBatchStatisticsAsync(
+        List<Guid> entityIds,
+        string idFieldName,
+        string targetType,
         Guid? hospitalId = null
     )
     {
-        var doctorIdsStrings = doctorIds.Select(id => id.ToString()).ToList();
+        var entityIdsStrings = entityIds.Select(id => id.ToString()).ToList();
 
         var matchConditions = new BsonDocument
         {
-            { "doctorId", new BsonDocument("$in", new BsonArray(doctorIdsStrings)) },
-            { "targetType", "DOCTOR" },
+            { idFieldName, new BsonDocument("$in", new BsonArray(entityIdsStrings)) },
+            { "targetType", targetType },
         };
 
         // Add hospital filter if provided
@@ -648,7 +650,7 @@ public class ReviewRepository : IReviewRepository
             "$group",
             new BsonDocument
             {
-                { "_id", "$doctorId" },
+                { "_id", $"${idFieldName}" },
                 { AverageRatingField, new BsonDocument("$avg", "$rating") },
                 { TotalReviewsField, new BsonDocument("$sum", 1) },
             }
@@ -659,48 +661,59 @@ public class ReviewRepository : IReviewRepository
         var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
         var results = await cursor.ToListAsync();
 
-        var response = new BatchDoctorsStatisticsResponse();
+        var statistics = new Dictionary<Guid, ReviewStatisticsResponse>();
+        var foundEntityIds = new HashSet<Guid>();
 
-        // Create a set of doctors that have reviews
-        var foundDoctorIds = new HashSet<Guid>();
-
-        // Add doctors that have reviews
+        // Add entities that have reviews
         foreach (var result in results)
         {
-            var doctorIdString = result["_id"].AsString;
-            if (Guid.TryParse(doctorIdString, out var doctorId))
+            var entityIdString = result["_id"].AsString;
+            if (Guid.TryParse(entityIdString, out var entityId))
             {
-                foundDoctorIds.Add(doctorId);
+                foundEntityIds.Add(entityId);
 
                 var averageRating = result.Contains(AverageRatingField)
                     ? result[AverageRatingField].ToDouble()
                     : 0.0;
                 var totalReviews = result[TotalReviewsField].ToInt64();
 
-                response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
+                statistics[entityId] = new ReviewStatisticsResponse
                 {
-                    TargetId = doctorId,
+                    TargetId = entityId,
                     AverageRating = Math.Round(averageRating, 2),
                     TotalReviews = totalReviews,
                 };
             }
         }
 
-        // Add doctors that don't have reviews with 0 values
-        foreach (var doctorId in doctorIds)
+        // Add entities that don't have reviews with 0 values
+        foreach (var entityId in entityIds)
         {
-            if (!foundDoctorIds.Contains(doctorId))
+            if (!foundEntityIds.Contains(entityId))
             {
-                response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
+                statistics[entityId] = new ReviewStatisticsResponse
                 {
-                    TargetId = doctorId,
+                    TargetId = entityId,
                     AverageRating = 0.0,
                     TotalReviews = 0,
                 };
             }
         }
 
-        return response;
+        return statistics;
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single query
+    /// </summary>
+    public async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(
+        List<Guid> doctorIds,
+        Guid? hospitalId = null
+    )
+    {
+        var statistics = await GetBatchStatisticsAsync(doctorIds, "doctorId", "DOCTOR", hospitalId);
+
+        return new BatchDoctorsStatisticsResponse { DoctorStatistics = statistics };
     }
 
     /// <summary>
@@ -711,79 +724,14 @@ public class ReviewRepository : IReviewRepository
         Guid? hospitalId = null
     )
     {
-        var serviceIdsStrings = serviceIds.Select(id => id.ToString()).ToList();
-
-        var matchConditions = new BsonDocument
-        {
-            { "serviceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
-            { "targetType", "SERVICE" },
-        };
-
-        // Add hospital filter if provided
-        if (hospitalId.HasValue)
-        {
-            matchConditions.Add("hospitalId", hospitalId.Value.ToString());
-        }
-
-        var matchStage = new BsonDocument("$match", matchConditions);
-
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", "$serviceId" },
-                { AverageRatingField, new BsonDocument("$avg", "$rating") },
-                { TotalReviewsField, new BsonDocument("$sum", 1) },
-            }
+        var statistics = await GetBatchStatisticsAsync(
+            serviceIds,
+            "serviceId",
+            "SERVICE",
+            hospitalId
         );
 
-        var pipeline = new[] { matchStage, groupStage };
-
-        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
-        var results = await cursor.ToListAsync();
-
-        var response = new BatchServicesStatisticsResponse();
-
-        // Create a set of services that have reviews
-        var foundServiceIds = new HashSet<Guid>();
-
-        // Add services that have reviews
-        foreach (var result in results)
-        {
-            var serviceIdString = result["_id"].AsString;
-            if (Guid.TryParse(serviceIdString, out var serviceId))
-            {
-                foundServiceIds.Add(serviceId);
-
-                var averageRating = result.Contains(AverageRatingField)
-                    ? result[AverageRatingField].ToDouble()
-                    : 0.0;
-                var totalReviews = result[TotalReviewsField].ToInt64();
-
-                response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
-                {
-                    TargetId = serviceId,
-                    AverageRating = Math.Round(averageRating, 2),
-                    TotalReviews = totalReviews,
-                };
-            }
-        }
-
-        // Add services that don't have reviews with 0 values
-        foreach (var serviceId in serviceIds)
-        {
-            if (!foundServiceIds.Contains(serviceId))
-            {
-                response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
-                {
-                    TargetId = serviceId,
-                    AverageRating = 0.0,
-                    TotalReviews = 0,
-                };
-            }
-        }
-
-        return response;
+        return new BatchServicesStatisticsResponse { ServiceStatistics = statistics };
     }
 
     /// <summary>
