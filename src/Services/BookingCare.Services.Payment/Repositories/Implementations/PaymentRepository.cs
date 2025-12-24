@@ -231,7 +231,7 @@ public class PaymentRepository : IPaymentRepository
             .Where(p => p.CreatedAt >= fromDate && p.CreatedAt <= toDate);
 
         // ALWAYS filter for SUBSCRIPTION transactions only (revenue comes from subscriptions, not appointments)
-        query = query.Where(p => p.TransactionType == TransactionType.SUBSCRIPTION);
+        query = query.Where(p => p.TransactionType == TransactionType.SUBSCRIPTION && p.Status == PaymentStatus.COMPLETED);
 
         // Apply filters
         if (request.HospitalId.HasValue)
