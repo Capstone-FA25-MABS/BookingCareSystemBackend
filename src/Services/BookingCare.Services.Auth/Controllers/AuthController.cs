@@ -422,7 +422,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
     [HttpPost("accounts/{id}/ban-unban")]
-    [Authorize(Policy = "Role:Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> BanUnban(Guid id)
     {
@@ -437,7 +437,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
     [HttpPost("accounts/{id}/lock")]
-    [Authorize(Policy = "Role:Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> LockAccount(Guid id)
     {
@@ -456,7 +456,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
     [HttpPost("accounts/{id}/unlock")]
-    [Authorize(Policy = "Role:Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UnlockAccount(Guid id)
     {
