@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
-public class AiInsightsService : IAiInsightsService
+public partial class AiInsightsService : IAiInsightsService
 {
     private readonly string _appointmentConnection;
     private readonly string? _doctorConnection;
@@ -62,7 +62,8 @@ public class AiInsightsService : IAiInsightsService
                 previousEnd = currentStart.AddTicks(-1);
                 previousStart = previousEnd.AddDays(-periodLength).Date;
 
-                periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
+                // Format label với ngày gốc (không cộng thêm 1 ngày)
+                periodLabel = $"khoảng thời gian ({request.FromDate.Value:yyyy-MM-dd} → {request.ToDate.Value:yyyy-MM-dd})";
             }
             else
             {
@@ -193,6 +194,15 @@ public class AiInsightsService : IAiInsightsService
             var cancellationDetails = await GetCancellationDetailsAsync(connection, currentStart, currentEnd, cancellationToken);
             var patientSegments = await GetPatientSegmentsAsync(connection, currentStart, currentEnd, cancellationToken);
 
+            // NEW: Deep analytics from Appointment fields
+            _logger.LogInformation("Collecting deep analytics from Reason, Symptoms, IsRescheduled...");
+            // COMMENTED OUT: ReasonAnalyses and SymptomAnalyses - not displayed in UI
+            // var reasonAnalyses = await GetReasonAnalysesAsync(connection, currentStart, currentEnd, cancellationToken);
+            // SymptomAnalyses kept for internal use (prediction) but not returned to UI
+            var symptomAnalyses = await GetSymptomAnalysesAsync(connection, currentStart, currentEnd, cancellationToken);
+            var rescheduleInsight = await GetRescheduleInsightAsync(connection, currentStart, currentEnd, cancellationToken);
+            var detailedCancellationAnalysis = await GetDetailedCancellationAnalysisAsync(connection, currentStart, currentEnd, cancellationToken);
+
             return new AiInsightMetrics
             {
                 CurrentTotal = currentTotal,
@@ -213,7 +223,12 @@ public class AiInsightsService : IAiInsightsService
                 PeakHours = peakHours,
                 SpecialtyBreakdown = specialtyBreakdown,
                 CancellationDetails = cancellationDetails,
-                PatientSegments = patientSegments
+                PatientSegments = patientSegments,
+                // NEW: Deep analytics
+                // ReasonAnalyses = reasonAnalyses, // COMMENTED OUT - not displayed in UI
+                // SymptomAnalyses = symptomAnalyses, // COMMENTED OUT - kept for internal prediction only
+                RescheduleInsight = rescheduleInsight,
+                DetailedCancellationAnalysis = detailedCancellationAnalysis
             };
         }
         catch (Exception ex)
@@ -964,10 +979,18 @@ WHERE AppointmentDate BETWEEN @start AND @end";
 Bạn là chuyên gia phân tích dữ liệu BI cho BookingCare - hệ thống đặt lịch khám bệnh trực tuyến.
 Phân tích dữ liệu và tạo báo cáo insights chuyên nghiệp bằng TIẾNG VIỆT cho ban quản trị.
 
+🚨 QUY TẮC VÀNG - TUYỆT ĐỐI KHÔNG ĐƯỢC VI PHẠM:
+1. CHỈ ĐƯỢC phân tích dữ liệu CÓ SẴN trong metrics JSON bên dưới
+2. TUYỆT ĐỐI KHÔNG được tự suy đoán, bịa đặt, hoặc tạo ra số liệu không có trong dữ liệu
+3. MỌI con số, phần trăm, tên bác sĩ/bệnh viện/chuyên khoa PHẢI lấy TRỰC TIẾP từ metrics
+4. NẾU dữ liệu không có thông tin → Nói rõ ""Dữ liệu chưa đủ để phân tích"" → KHÔNG được bịa
+5. NẾU metrics.TopDoctors = [] → KHÔNG được nói ""Bác sĩ X có Y lượt khám""
+6. NẾU metrics.DetailedCancellationAnalysis.TopReasons = [] → KHÔNG được nói ""Lý do hủy chính là Z""
+
 ⚠️ YÊU CẦU BẮT BUỘC:
 - TẤT CẢ nội dung phải bằng TIẾNG VIỆT HOÀN TOÀN (kết luận, phân tích, dự đoán, tên chuyên khoa/bác sĩ/bệnh viện, khuyến nghị, cảnh báo)
 - TUYỆT ĐỐI KHÔNG được dùng tiếng Trung, tiếng Anh, hoặc bất kỳ ngôn ngữ nào khác (trừ tên riêng)
-- Sử dụng số liệu cụ thể từ dữ liệu, KHÔNG tạo dữ liệu giả
+- CHỈ sử dụng số liệu CÓ TRONG metrics JSON, KHÔNG tạo dữ liệu giả
 - Viết thành đoạn văn liền mạch, không phải bullet points
 - Độ dài báo cáo: 1500-3000 từ
 
@@ -989,11 +1012,15 @@ Phân tích chi tiết các khía cạnh sau (mỗi phần 100-200 từ):
 5. Phân tích khung giờ vàng (giờ nào nhiều lượt nhất, nhu cầu theo thời gian)
 6. Phân tích khách hàng (tỷ lệ mới vs quay lại, retention)
 7. Phân tích hủy lịch (tỷ lệ, lý do, pattern, tác động)
-8. Đề xuất hành động (5-7 đề xuất cụ thể, có lý do và kết quả mong đợi)
-9. Đánh giá rủi ro (3-5 rủi ro: mô tả, mức độ, khả năng, tác động, biện pháp)
-10. Dự đoán tương lai (lượt đặt tuần/tháng tới, tỉ lệ hủy, chuyên khoa phổ biến, confidence, lý do)
-11. Cảnh báo (chỉ số bất thường: type, title BẰNG TIẾNG VIỆT, message BẰNG TIẾNG VIỆT chi tiết, severity, metric BẰNG TIẾNG VIỆT, currentValue là giá trị thực tế từ dữ liệu, thresholdValue là ngưỡng cảnh báo để so sánh, recommendedAction BẰNG TIẾNG VIỆT chi tiết 30-50 từ)
-12. Phân tích nguyên nhân gốc rễ (chỉ số bất thường: metric BẰNG TIẾNG VIỆT, issue BẰNG TIẾNG VIỆT chi tiết, potentialCauses[] BẰNG TIẾNG VIỆT, mostLikelyCause BẰNG TIẾNG VIỆT chi tiết giải thích TẠI SAO, analysis BẰNG TIẾNG VIỆT 100-150 từ, impactScore 0-100)
+8. **PHÂN TÍCH LÝ DO ĐẶT LỊCH** (từ trường Reason): Phân loại lý do đặt lịch (khám lần đầu, tái khám, định kỳ, v.v.), từ khóa phổ biến, xu hướng nhu cầu
+9. **PHÂN TÍCH TRIỆU CHỨNG** (từ trường Symptoms): Phân loại triệu chứng phổ biến (đau đầu, sốt, ho, v.v.), liên kết với chuyên khoa, xu hướng bệnh lý
+10. **PHÂN TÍCH LỊCH HẸN BỊ DỜI** (từ trường IsRescheduled): Tỷ lệ dời lịch, pattern theo bác sĩ/chuyên khoa/giờ, tỷ lệ hoàn thành sau khi dời, nguyên nhân
+11. **PHÂN TÍCH CHI TIẾT LÝ DO HỦY** (từ trường Reason khi Status=CANCELLED): Phân loại lý do hủy (bận việc, đổi ý, không liên lạc, v.v.), pattern theo giờ/chuyên khoa, khuyến nghị cụ thể
+12. Đề xuất hành động (5-7 đề xuất cụ thể dựa trên phân tích Reason, Symptoms, IsRescheduled, có lý do và kết quả mong đợi)
+13. Đánh giá rủi ro (3-5 rủi ro dựa trên dữ liệu thực tế: mô tả, mức độ, khả năng, tác động, biện pháp)
+14. Dự đoán tương lai (dựa trên xu hướng Reason, Symptoms, IsRescheduled: lượt đặt tuần/tháng tới, tỉ lệ hủy, chuyên khoa phổ biến, confidence, lý do)
+15. Cảnh báo (chỉ số bất thường DỰA VÀO DỮ LIỆU THỰC TẾ: type, title BẰNG TIẾNG VIỆT, message BẰNG TIẾNG VIỆT chi tiết dựa trên Reason/Symptoms/IsRescheduled, severity, metric BẰNG TIẾNG VIỆT, currentValue là giá trị thực tế từ dữ liệu, thresholdValue là ngưỡng cảnh báo, recommendedAction BẰNG TIẾNG VIỆT chi tiết 30-50 từ dựa trên phân tích)
+16. Phân tích nguyên nhân gốc rễ (chỉ số bất thường DỰA VÀO DỮ LIỆU THỰC TẾ: metric BẰNG TIẾNG VIỆT, issue BẰNG TIẾNG VIỆT chi tiết, potentialCauses[] BẰNG TIẾNG VIỆT dựa trên Reason/Symptoms/IsRescheduled, mostLikelyCause BẰNG TIẾNG VIỆT chi tiết giải thích TẠI SAO dựa trên dữ liệu, analysis BẰNG TIẾNG VIỆT 100-150 từ với bằng chứng cụ thể từ Reason/Symptoms/IsRescheduled, impactScore 0-100)
 
 BƯỚC 2: JSON DATA (cuối báo cáo, trong thẻ <JSON_DATA>...</JSON_DATA>):
 
@@ -1001,7 +1028,8 @@ BƯỚC 2: JSON DATA (cuối báo cáo, trong thẻ <JSON_DATA>...</JSON_DATA>):
 {{
   ""analysisConclusion"": ""<Kết luận phân tích hệ thống - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
   
-  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})'. 
+  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại'. 
+  QUAN TRỌNG: Sử dụng CHÍNH XÁC chuỗi '{periodLabel}' đã được cung cấp, KHÔNG format lại ngày tháng.
   Bao gồm: Tổng lượt đặt (số cụ thể, so kỳ trước %), chuyên khoa nổi bật (tên, số lượt, %), tỉ lệ hủy (số, %, so kỳ trước), lượt hoàn thành (số, %). 
   Phân tích nguyên nhân tăng/giảm (yếu tố chính), đánh giá top bác sĩ/bệnh viện/chuyên khoa (nếu có), xu hướng tổng thể (phát triển/suy giảm), điểm mạnh/yếu chính, tình trạng hệ thống (tốt/trung bình/cần cải thiện).
   Có số liệu cụ thể, phân tích ngắn gọn, KHÔNG có từ tiếng Anh>"",
@@ -1037,22 +1065,22 @@ BƯỚC 2: JSON DATA (cuối báo cáo, trong thẻ <JSON_DATA>...</JSON_DATA>):
   ""alerts"": [
     {{
       ""type"": ""warning|critical|info|success"",
-      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn, ví dụ: 'Tỉ lệ hủy lịch cao'>"",
-      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề, ít nhất 30-50 từ, ví dụ: 'Tỉ lệ hủy lịch hiện tại là 25%, cao hơn ngưỡng cảnh báo 20%. Điều này cho thấy cần cải thiện chất lượng dịch vụ và tăng cường giao tiếp với khách hàng'>"",
+      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn>"",
+      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics, ít nhất 30-50 từ>"",
       ""severity"": ""high|medium|low"",
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""currentValue"": <số thực tế từ dữ liệu, ví dụ: nếu tỉ lệ hủy là 25% thì currentValue = 25>,
-      ""thresholdValue"": <ngưỡng cảnh báo để so sánh, ví dụ: nếu ngưỡng là 20% thì thresholdValue = 20>,
-      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, ví dụ: 'Gửi email nhắc nhở lịch hẹn 24h trước khi khám, cải thiện chất lượng dịch vụ khám bệnh, tăng cường giao tiếp với khách hàng qua hotline và SMS', ít nhất 30-50 từ>""
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""currentValue"": <số thực tế từ metrics.CancellationRate hoặc metrics khác>,
+      ""thresholdValue"": <ngưỡng cảnh báo hợp lý dựa trên dữ liệu lịch sử>,
+      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, DỰA VÀO phân tích Reason/Symptoms/IsRescheduled, ít nhất 30-50 từ>""
     }}
   ],
   ""rootCauseAnalyses"": [
     {{
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, ví dụ: 'Tỉ lệ hủy lịch cao ở mức 25%, vượt quá ngưỡng cảnh báo 20%'>"",
-      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng của khách hàng'>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Thiếu giao tiếp và nhắc nhở với khách hàng trước ngày khám'>""],
-      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, dựa trên dữ liệu nào, ít nhất 50-80 từ. Ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng là nguyên nhân chính vì dữ liệu cho thấy tỉ lệ hủy tăng cao sau khi khách hàng đặt lịch, và có nhiều phản hồi tiêu cực về chất lượng dịch vụ. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, cho thấy vấn đề chất lượng dịch vụ đang trở nên nghiêm trọng'>"",
-      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, bằng chứng từ dữ liệu, tại sao nguyên nhân này quan trọng, tác động đến hệ thống như thế nào. Phân tích phải có cấu trúc rõ ràng với các đoạn văn riêng biệt. Ví dụ: 'Phân tích dữ liệu cho thấy rằng chất lượng dịch vụ khám bệnh là nguyên nhân chính dẫn đến việc hủy lịch. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, với hơn 60% lượt hủy xảy ra trong vòng 24 giờ sau khi đặt lịch. Điều này cho thấy khách hàng đang mất niềm tin vào chất lượng dịch vụ ngay sau khi đặt lịch. Dữ liệu phản hồi từ khách hàng cho thấy có nhiều phàn nàn về thời gian chờ đợi lâu, thái độ phục vụ chưa tốt, và chất lượng khám bệnh không đáp ứng kỳ vọng. Tác động của vấn đề này rất lớn, ảnh hưởng trực tiếp đến doanh thu và uy tín của hệ thống. Để giải quyết, cần cải thiện chất lượng dịch vụ khám bệnh, đào tạo nhân viên, và tăng cường giám sát chất lượng dịch vụ'>"",
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics>"",
+      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, DỰA VÀO phân tích DetailedCancellationAnalysis, ReasonAnalyses, SymptomAnalyses>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, DỰA VÀO dữ liệu thực tế>""],
+      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, DỰA VÀO DỮ LIỆU CỤ THỂ từ metrics (ví dụ: metrics.DetailedCancellationAnalysis.TopReasons[0].ReasonCategory chiếm X%), ít nhất 50-80 từ>"",
+      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, TRÍCH DẪN BẰNG CHỨNG CỤ THỂ từ dữ liệu (ví dụ: 'Dữ liệu cho thấy metrics.CancellationRate = X%, tăng Y% so với kỳ trước. Phân tích DetailedCancellationAnalysis cho thấy Z% lượt hủy do [lý do cụ thể từ TopReasons]'), tại sao nguyên nhân này quan trọng, tác động đến hệ thống như thế nào. TUYỆT ĐỐI KHÔNG tạo dữ liệu giả, CHỈ dùng số liệu từ metrics đã cung cấp>"",
       ""impactScore"": <số 0-100>
     }}
   ]
@@ -1407,7 +1435,8 @@ LƯU Ý JSON:
                 var periodLength = (currentEnd - currentStart).TotalDays;
                 previousEnd = currentStart.AddTicks(-1);
                 previousStart = previousEnd.AddDays(-periodLength).Date;
-                periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
+                // Format label với ngày gốc (không cộng thêm 1 ngày)
+                periodLabel = $"khoảng thời gian ({request.FromDate.Value:yyyy-MM-dd} → {request.ToDate.Value:yyyy-MM-dd})";
             }
             else
             {
@@ -1500,7 +1529,8 @@ LƯU Ý JSON:
                 var periodLength = (currentEnd - currentStart).TotalDays;
                 previousEnd = currentStart.AddTicks(-1);
                 previousStart = previousEnd.AddDays(-periodLength).Date;
-                periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
+                // Format label với ngày gốc (không cộng thêm 1 ngày)
+                periodLabel = $"khoảng thời gian ({request.FromDate.Value:yyyy-MM-dd} → {request.ToDate.Value:yyyy-MM-dd})";
             }
             else
             {
@@ -1606,6 +1636,15 @@ LƯU Ý JSON:
             var cancellationDetails = await GetCancellationDetailsAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
             var patientSegments = await GetPatientSegmentsAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
 
+            // NEW: Deep analytics for doctor
+            _logger.LogInformation("Collecting deep analytics for doctor {DoctorId}...", doctorId);
+            // COMMENTED OUT: ReasonAnalyses and SymptomAnalyses - not displayed in UI
+            // var reasonAnalyses = await GetReasonAnalysesAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            // SymptomAnalyses kept for internal use (prediction) but not returned to UI
+            var symptomAnalyses = await GetSymptomAnalysesAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            var rescheduleInsight = await GetRescheduleInsightAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            var detailedCancellationAnalysis = await GetDetailedCancellationAnalysisAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+
             return new AiInsightMetrics
             {
                 CurrentTotal = currentTotal,
@@ -1626,7 +1665,12 @@ LƯU Ý JSON:
                 PeakHours = peakHours,
                 SpecialtyBreakdown = specialtyBreakdown,
                 CancellationDetails = cancellationDetails,
-                PatientSegments = patientSegments
+                PatientSegments = patientSegments,
+                // NEW: Deep analytics
+                // ReasonAnalyses = reasonAnalyses, // COMMENTED OUT - not displayed in UI
+                // SymptomAnalyses = symptomAnalyses, // COMMENTED OUT - kept for internal prediction only
+                RescheduleInsight = rescheduleInsight,
+                DetailedCancellationAnalysis = detailedCancellationAnalysis
             };
         }
         catch (Exception ex)
@@ -1668,6 +1712,15 @@ LƯU Ý JSON:
             var cancellationDetails = await GetCancellationDetailsAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
             var patientSegments = await GetPatientSegmentsAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
 
+            // NEW: Deep analytics for hospital
+            _logger.LogInformation("Collecting deep analytics for hospital {HospitalId}...", hospitalId);
+            // COMMENTED OUT: ReasonAnalyses and SymptomAnalyses - not displayed in UI
+            // var reasonAnalyses = await GetReasonAnalysesAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            // SymptomAnalyses kept for internal use (prediction) but not returned to UI
+            var symptomAnalyses = await GetSymptomAnalysesAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var rescheduleInsight = await GetRescheduleInsightAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var detailedCancellationAnalysis = await GetDetailedCancellationAnalysisAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+
             return new AiInsightMetrics
             {
                 CurrentTotal = currentTotal,
@@ -1688,7 +1741,12 @@ LƯU Ý JSON:
                 PeakHours = peakHours,
                 SpecialtyBreakdown = specialtyBreakdown,
                 CancellationDetails = cancellationDetails,
-                PatientSegments = patientSegments
+                PatientSegments = patientSegments,
+                // NEW: Deep analytics
+                // ReasonAnalyses = reasonAnalyses, // COMMENTED OUT - not displayed in UI
+                // SymptomAnalyses = symptomAnalyses, // COMMENTED OUT - kept for internal prediction only
+                RescheduleInsight = rescheduleInsight,
+                DetailedCancellationAnalysis = detailedCancellationAnalysis
             };
         }
         catch (Exception ex)
@@ -1714,10 +1772,18 @@ LƯU Ý JSON:
 Bạn là chuyên gia phân tích dữ liệu BI cho BookingCare - hệ thống đặt lịch khám bệnh trực tuyến.
 Phân tích dữ liệu và tạo báo cáo insights chuyên nghiệp bằng TIẾNG VIỆT cho bác sĩ {doctorName}.
 
+🚨 QUY TẮC VÀNG - TUYỆT ĐỐI KHÔNG ĐƯỢC VI PHẠM:
+1. CHỈ ĐƯỢC phân tích dữ liệu CÓ SẴN trong metrics JSON bên dưới
+2. TUYỆT ĐỐI KHÔNG được tự suy đoán, bịa đặt, hoặc tạo ra số liệu không có trong dữ liệu
+3. MỌI con số, phần trăm, tên chuyên khoa PHẢI lấy TRỰC TIẾP từ metrics
+4. NẾU dữ liệu không có thông tin → Nói rõ ""Dữ liệu chưa đủ để phân tích"" → KHÔNG được bịa
+5. NẾU metrics.PeakHours = [] → KHÔNG được nói ""Khung giờ X có Y lượt khám""
+6. NẾU metrics.DetailedCancellationAnalysis.TopReasons = [] → KHÔNG được nói ""Lý do hủy chính là Z""
+
 ⚠️ YÊU CẦU BẮT BUỘC:
 - TẤT CẢ nội dung phải bằng TIẾNG VIỆT HOÀN TOÀN (kết luận, phân tích, dự đoán, tên chuyên khoa, khuyến nghị, cảnh báo)
 - TUYỆT ĐỐI KHÔNG được dùng tiếng Trung, tiếng Anh, hoặc bất kỳ ngôn ngữ nào khác (trừ tên riêng)
-- Sử dụng số liệu cụ thể từ dữ liệu, KHÔNG tạo dữ liệu giả
+- CHỈ sử dụng số liệu CÓ TRONG metrics JSON, KHÔNG tạo dữ liệu giả
 - Viết thành đoạn văn liền mạch, không phải bullet points
 - Độ dài báo cáo: 1500-2800 từ
 - Tập trung vào hiệu suất CÁ NHÂN của bác sĩ: lịch hẹn, khung giờ, bệnh nhân mới/quay lại, chất lượng dịch vụ
@@ -1752,7 +1818,8 @@ Sử dụng cùng cấu trúc JSON như báo cáo bệnh viện nhưng CHỈ t�
 {{
   ""analysisConclusion"": ""<Kết luận phân tích - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
   
-  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd}), bác sĩ {doctorName}'. 
+  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại, bác sĩ {doctorName}'. 
+  QUAN TRỌNG: Sử dụng CHÍNH XÁC chuỗi '{periodLabel}' đã được cung cấp, KHÔNG format lại ngày tháng.
   Bao gồm: Tổng lượt đặt (số cụ thể, so kỳ trước %), chuyên khoa đang phục vụ (tên, số lượt, %), tỉ lệ hủy (số, %, so kỳ trước), lượt hoàn thành (số, %). 
   Phân tích nguyên nhân tăng/giảm (yếu tố chính), đánh giá hiệu suất cá nhân (tốt/trung bình/cần cải thiện), xu hướng bệnh nhân (mới/quay lại), điểm mạnh/yếu chính.
   Có số liệu cụ thể, phân tích ngắn gọn, KHÔNG có từ tiếng Anh>"",
@@ -1788,22 +1855,22 @@ Sử dụng cùng cấu trúc JSON như báo cáo bệnh viện nhưng CHỈ t�
   ""alerts"": [
     {{
       ""type"": ""warning|critical|info|success"",
-      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn, ví dụ: 'Tỉ lệ hủy lịch cao'>"",
-      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề, ít nhất 30-50 từ, ví dụ: 'Tỉ lệ hủy lịch hiện tại là 25%, cao hơn ngưỡng cảnh báo 20%. Điều này cho thấy cần cải thiện chất lượng dịch vụ và tăng cường giao tiếp với bệnh nhân'>"",
+      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn>"",
+      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics, ít nhất 30-50 từ>"",
       ""severity"": ""high|medium|low"",
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""currentValue"": <số thực tế từ dữ liệu, ví dụ: nếu tỉ lệ hủy là 25% thì currentValue = 25>,
-      ""thresholdValue"": <ngưỡng cảnh báo để so sánh, ví dụ: nếu ngưỡng là 20% thì thresholdValue = 20>,
-      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, ví dụ: 'Gửi tin nhắn nhắc nhở bệnh nhân 24h trước khi khám, cải thiện chất lượng khám bệnh, tăng cường giao tiếp với bệnh nhân qua điện thoại', ít nhất 30-50 từ>""
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""currentValue"": <số thực tế từ metrics.CancellationRate hoặc metrics khác>,
+      ""thresholdValue"": <ngưỡng cảnh báo hợp lý dựa trên dữ liệu lịch sử>,
+      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, DỰA VÀO phân tích Reason/Symptoms/IsRescheduled, ít nhất 30-50 từ>""
     }}
   ],
   ""rootCauseAnalyses"": [
     {{
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, ví dụ: 'Tỉ lệ hủy lịch cao ở mức 25%, vượt quá ngưỡng cảnh báo 20%'>"",
-      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng của bệnh nhân'>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Thiếu giao tiếp và nhắc nhở với bệnh nhân trước ngày khám'>""],
-      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, dựa trên dữ liệu nào, ít nhất 50-80 từ. Ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng là nguyên nhân chính vì dữ liệu cho thấy tỉ lệ hủy tăng cao sau khi bệnh nhân đặt lịch, và có nhiều phản hồi tiêu cực về chất lượng dịch vụ. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, cho thấy vấn đề chất lượng dịch vụ đang trở nên nghiêm trọng'>"",
-      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, bằng chứng từ dữ liệu, tại sao nguyên nhân này quan trọng, tác động đến uy tín bác sĩ như thế nào. Phân tích phải có cấu trúc rõ ràng với các đoạn văn riêng biệt. Ví dụ: 'Phân tích dữ liệu cho thấy rằng chất lượng dịch vụ khám bệnh là nguyên nhân chính dẫn đến việc hủy lịch. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, với hơn 60% lượt hủy xảy ra trong vòng 24 giờ sau khi đặt lịch. Điều này cho thấy bệnh nhân đang mất niềm tin vào chất lượng dịch vụ ngay sau khi đặt lịch. Dữ liệu phản hồi từ bệnh nhân cho thấy có nhiều phàn nàn về thời gian chờ đợi lâu, thái độ phục vụ chưa tốt, và chất lượng khám bệnh không đáp ứng kỳ vọng. Tác động của vấn đề này rất lớn, ảnh hưởng trực tiếp đến uy tín và thu nhập của bác sĩ. Để giải quyết, cần cải thiện chất lượng dịch vụ khám bệnh, tăng cường giao tiếp với bệnh nhân, và chú ý đến thời gian khám'>"",
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics>"",
+      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, DỰA VÀO phân tích DetailedCancellationAnalysis, ReasonAnalyses, SymptomAnalyses>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, DỰA VÀO dữ liệu thực tế>""],
+      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, DỰA VÀO DỮ LIỆU CỤ THỂ từ metrics (ví dụ: metrics.DetailedCancellationAnalysis.TopReasons[0].ReasonCategory chiếm X%), ít nhất 50-80 từ>"",
+      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, TRÍCH DẪN BẰNG CHỨNG CỤ THỂ từ dữ liệu (ví dụ: 'Dữ liệu cho thấy metrics.CancellationRate = X%, tăng Y% so với kỳ trước. Phân tích DetailedCancellationAnalysis cho thấy Z% lượt hủy do [lý do cụ thể từ TopReasons]'), tại sao nguyên nhân này quan trọng, tác động đến uy tín bác sĩ như thế nào. TUYỆT ĐỐI KHÔNG tạo dữ liệu giả, CHỈ dùng số liệu từ metrics đã cung cấp>"",
       ""impactScore"": <số 0-100>
     }}
   ]
@@ -1833,10 +1900,18 @@ LƯU Ý JSON:
 Bạn là chuyên gia phân tích dữ liệu BI cho BookingCare - hệ thống đặt lịch khám bệnh trực tuyến.
 Phân tích dữ liệu và tạo báo cáo insights chuyên nghiệp bằng TIẾNG VIỆT cho bệnh viện {hospitalName}.
 
+🚨 QUY TẮC VÀNG - TUYỆT ĐỐI KHÔNG ĐƯỢC VI PHẠM:
+1. CHỈ ĐƯỢC phân tích dữ liệu CÓ SẴN trong metrics JSON bên dưới
+2. TUYỆT ĐỐI KHÔNG được tự suy đoán, bịa đặt, hoặc tạo ra số liệu không có trong dữ liệu
+3. MỌI con số, phần trăm, tên bác sĩ/chuyên khoa PHẢI lấy TRỰC TIẾP từ metrics
+4. NẾU dữ liệu không có thông tin → Nói rõ ""Dữ liệu chưa đủ để phân tích"" → KHÔNG được bịa
+5. NẾU metrics.TopDoctors = [] → KHÔNG được nói ""Bác sĩ X có Y lượt khám""
+6. NẾU metrics.SpecialtyBreakdown = [] → KHÔNG được nói ""Chuyên khoa X chiếm Y%""
+
 ⚠️ YÊU CẦU BẮT BUỘC:
 - TẤT CẢ nội dung phải bằng TIẾNG VIỆT HOÀN TOÀN (kết luận, phân tích, dự đoán, tên chuyên khoa/bác sĩ, khuyến nghị, cảnh báo)
 - TUYỆT ĐỐI KHÔNG được dùng tiếng Trung, tiếng Anh, hoặc bất kỳ ngôn ngữ nào khác (trừ tên riêng)
-- Sử dụng số liệu cụ thể từ dữ liệu, KHÔNG tạo dữ liệu giả
+- CHỈ sử dụng số liệu CÓ TRONG metrics JSON, KHÔNG tạo dữ liệu giả
 - Viết thành đoạn văn liền mạch, không phải bullet points
 - Độ dài báo cáo: 1500-2800 từ
 - Tập trung vào hiệu suất VẬN HÀNH bệnh viện: phân bổ bác sĩ, chuyên khoa, khung giờ, bệnh nhân mới/quay lại, chất lượng dịch vụ
@@ -1872,7 +1947,8 @@ Sử dụng cùng cấu trúc JSON như báo cáo admin nhưng CHỈ tập trung
 {{
   ""analysisConclusion"": ""<Kết luận phân tích hệ thống - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
   
-  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})'. 
+  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại'. 
+  QUAN TRỌNG: Sử dụng CHÍNH XÁC chuỗi '{periodLabel}' đã được cung cấp, KHÔNG format lại ngày tháng.
   Bao gồm: Tổng lượt đặt (số cụ thể, so kỳ trước %), chuyên khoa nổi bật (tên, số lượt, %), tỉ lệ hủy (số, %, so kỳ trước), lượt hoàn thành (số, %). 
   Phân tích nguyên nhân tăng/giảm (yếu tố chính), đánh giá top bác sĩ/bệnh viện/chuyên khoa (nếu có), xu hướng tổng thể (phát triển/suy giảm), điểm mạnh/yếu chính, tình trạng hệ thống (tốt/trung bình/cần cải thiện).
   Có số liệu cụ thể, phân tích ngắn gọn, KHÔNG có từ tiếng Anh>"",
@@ -1908,22 +1984,22 @@ Sử dụng cùng cấu trúc JSON như báo cáo admin nhưng CHỈ tập trung
   ""alerts"": [
     {{
       ""type"": ""warning|critical|info|success"",
-      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn, ví dụ: 'Tỉ lệ hủy lịch cao'>"",
-      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề, ít nhất 30-50 từ, ví dụ: 'Tỉ lệ hủy lịch hiện tại là 25%, cao hơn ngưỡng cảnh báo 20%. Điều này cho thấy cần cải thiện chất lượng dịch vụ và tăng cường giao tiếp với khách hàng'>"",
+      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn>"",
+      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics, ít nhất 30-50 từ>"",
       ""severity"": ""high|medium|low"",
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""currentValue"": <số thực tế từ dữ liệu, ví dụ: nếu tỉ lệ hủy là 25% thì currentValue = 25>,
-      ""thresholdValue"": <ngưỡng cảnh báo để so sánh, ví dụ: nếu ngưỡng là 20% thì thresholdValue = 20>,
-      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, ví dụ: 'Gửi email nhắc nhở lịch hẹn 24h trước khi khám, cải thiện chất lượng dịch vụ khám bệnh, tăng cường giao tiếp với khách hàng qua hotline và SMS', ít nhất 30-50 từ>""
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""currentValue"": <số thực tế từ metrics.CancellationRate hoặc metrics khác>,
+      ""thresholdValue"": <ngưỡng cảnh báo hợp lý dựa trên dữ liệu lịch sử>,
+      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, DỰA VÀO phân tích Reason/Symptoms/IsRescheduled, ít nhất 30-50 từ>""
     }}
   ],
   ""rootCauseAnalyses"": [
     {{
-      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
-      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, ví dụ: 'Tỉ lệ hủy lịch cao ở mức 25%, vượt quá ngưỡng cảnh báo 20%'>"",
-      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng của khách hàng'>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Thiếu giao tiếp và nhắc nhở với khách hàng trước ngày khám'>""],
-      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, dựa trên dữ liệu nào, ít nhất 50-80 từ. Ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng là nguyên nhân chính vì dữ liệu cho thấy tỉ lệ hủy tăng cao sau khi khách hàng đặt lịch, và có nhiều phản hồi tiêu cực về chất lượng dịch vụ. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, cho thấy vấn đề chất lượng dịch vụ đang trở nên nghiêm trọng'>"",
-      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, bằng chứng từ dữ liệu, tại sao nguyên nhân này quan trọng, tác động đến hệ thống như thế nào. Phân tích phải có cấu trúc rõ ràng với các đoạn văn riêng biệt. Ví dụ: 'Phân tích dữ liệu cho thấy rằng chất lượng dịch vụ khám bệnh là nguyên nhân chính dẫn đến việc hủy lịch. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, với hơn 60% lượt hủy xảy ra trong vòng 24 giờ sau khi đặt lịch. Điều này cho thấy khách hàng đang mất niềm tin vào chất lượng dịch vụ ngay sau khi đặt lịch. Dữ liệu phản hồi từ khách hàng cho thấy có nhiều phàn nàn về thời gian chờ đợi lâu, thái độ phục vụ chưa tốt, và chất lượng khám bệnh không đáp ứng kỳ vọng. Tác động của vấn đề này rất lớn, ảnh hưởng trực tiếp đến doanh thu và uy tín của hệ thống. Để giải quyết, cần cải thiện chất lượng dịch vụ khám bệnh, đào tạo nhân viên, và tăng cường giám sát chất lượng dịch vụ'>"",
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT>"",
+      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, DỰA VÀO DỮ LIỆU THỰC TẾ từ metrics>"",
+      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, DỰA VÀO phân tích DetailedCancellationAnalysis, ReasonAnalyses, SymptomAnalyses>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, DỰA VÀO dữ liệu thực tế>""],
+      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, DỰA VÀO DỮ LIỆU CỤ THỂ từ metrics (ví dụ: metrics.DetailedCancellationAnalysis.TopReasons[0].ReasonCategory chiếm X%), ít nhất 50-80 từ>"",
+      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, TRÍCH DẪN BẰNG CHỨNG CỤ THỂ từ dữ liệu (ví dụ: 'Dữ liệu cho thấy metrics.CancellationRate = X%, tăng Y% so với kỳ trước. Phân tích DetailedCancellationAnalysis cho thấy Z% lượt hủy do [lý do cụ thể từ TopReasons]'), tại sao nguyên nhân này quan trọng, tác động đến hệ thống như thế nào. TUYỆT ĐỐI KHÔNG tạo dữ liệu giả, CHỈ dùng số liệu từ metrics đã cung cấp>"",
       ""impactScore"": <số 0-100>
     }}
   ]
