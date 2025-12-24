@@ -10,21 +10,7 @@ public class GetPaymentStatisticsRequestValidator : AbstractValidator<GetPayment
 {
     public GetPaymentStatisticsRequestValidator()
     {
-        // Validate FromDate if provided
-        When(x => x.FromDate.HasValue, () =>
-        {
-            RuleFor(x => x.FromDate)
-                .LessThanOrEqualTo(DateTime.Now)
-                .WithMessage("FromDate must not be greater than current date");
-        });
 
-        // Validate ToDate if provided
-        When(x => x.ToDate.HasValue, () =>
-        {
-            RuleFor(x => x.ToDate)
-                .LessThanOrEqualTo(DateTime.Now)
-                .WithMessage("ToDate must not be greater than current date");
-        });
 
         // Validate date range if both provided
         When(x => x.FromDate.HasValue && x.ToDate.HasValue, () =>

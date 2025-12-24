@@ -1,7 +1,7 @@
-using FluentValidation;
-using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Enums;
 using BookingCare.Services.Review.Extensions;
+using BookingCare.Services.Review.Models.DTOs;
+using FluentValidation;
 
 namespace BookingCare.Services.Review.Validators;
 
@@ -12,9 +12,7 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
 {
     public CreateReviewRequestValidator()
     {
-        RuleFor(x => x.PatientId)
-            .NotEmptyGuid()
-            .WithName("Patient ID");
+        RuleFor(x => x.PatientId).NotEmptyGuid().WithName("Patient ID");
 
         RuleFor(x => x.TargetType)
             .IsInEnum()
@@ -44,16 +42,16 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
             .When(x => x.TargetType == TargetType.DOCTOR)
             .WithMessage("Service ID should not be provided when reviewing a doctor");
 
-        RuleFor(x => x.Rating)
-            .ValidRating();
+        RuleFor(x => x.Rating).ValidRating();
 
-        RuleFor(x => x.Comment)
-            .ValidComment();
+        RuleFor(x => x.Comment).ValidComment();
 
         // Cross-field validation
         RuleFor(x => x)
             .Must(BeValidTargetCombination)
-            .WithMessage("Invalid target combination: Either Doctor ID or Service ID must be provided based on target type")
+            .WithMessage(
+                "Invalid target combination: Either Doctor ID or Service ID must be provided based on target type"
+            )
             .OverridePropertyName("TargetCombination");
     }
 
@@ -61,9 +59,13 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
     {
         return request.TargetType switch
         {
-            TargetType.DOCTOR => request.DoctorId.HasValue && request.DoctorId != Guid.Empty && !request.ServiceId.HasValue,
-            TargetType.SERVICE => request.ServiceId.HasValue && request.ServiceId != Guid.Empty && !request.DoctorId.HasValue,
-            _ => false
+            TargetType.DOCTOR => request.DoctorId.HasValue
+                && request.DoctorId != Guid.Empty
+                && !request.ServiceId.HasValue,
+            TargetType.SERVICE => request.ServiceId.HasValue
+                && request.ServiceId != Guid.Empty
+                && !request.DoctorId.HasValue,
+            _ => false,
         };
     }
 }
@@ -75,15 +77,11 @@ public class UpdateReviewRequestValidator : AbstractValidator<UpdateReviewReques
 {
     public UpdateReviewRequestValidator()
     {
-        RuleFor(x => x.Id)
-            .ValidObjectId()
-            .WithName("Review ID");
+        RuleFor(x => x.Id).ValidObjectId().WithName("Review ID");
 
-        RuleFor(x => x.Rating)
-            .ValidRating();
+        RuleFor(x => x.Rating).ValidRating();
 
-        RuleFor(x => x.Comment)
-            .ValidComment();
+        RuleFor(x => x.Comment).ValidComment();
     }
 }
 
@@ -94,46 +92,59 @@ public class GetReviewsRequestValidator : AbstractValidator<GetReviewsRequest>
 {
     public GetReviewsRequestValidator()
     {
-        When(x => x.PatientId.HasValue, () =>
-        {
-            RuleFor(x => x.PatientId!.Value)
-                .NotEmpty()
-                .WithMessage("Patient ID cannot be empty")
-                .WithName("Patient ID");
-        });
+        When(
+            x => x.PatientId.HasValue,
+            () =>
+            {
+                RuleFor(x => x.PatientId!.Value)
+                    .NotEmpty()
+                    .WithMessage("Patient ID cannot be empty")
+                    .WithName("Patient ID");
+            }
+        );
 
-        When(x => x.DoctorId.HasValue, () =>
-        {
-            RuleFor(x => x.DoctorId!.Value)
-                .NotEmpty()
-                .WithMessage("Doctor ID cannot be empty")
-                .WithName("Doctor ID");
-        });
+        When(
+            x => x.DoctorId.HasValue,
+            () =>
+            {
+                RuleFor(x => x.DoctorId!.Value)
+                    .NotEmpty()
+                    .WithMessage("Doctor ID cannot be empty")
+                    .WithName("Doctor ID");
+            }
+        );
 
-        When(x => x.ServiceId.HasValue, () =>
-        {
-            RuleFor(x => x.ServiceId!.Value)
-                .NotEmpty()
-                .WithMessage("Service ID cannot be empty")
-                .WithName("Service ID");
-        });
+        When(
+            x => x.ServiceId.HasValue,
+            () =>
+            {
+                RuleFor(x => x.ServiceId!.Value)
+                    .NotEmpty()
+                    .WithMessage("Service ID cannot be empty")
+                    .WithName("Service ID");
+            }
+        );
 
         RuleFor(x => x.TargetType)
             .IsInEnum()
             .When(x => x.TargetType.HasValue)
             .WithMessage("Target type must be either 'DOCTOR' or 'SERVICE'");
 
-        When(x => x.MinRating.HasValue, () =>
-        {
-            RuleFor(x => x.MinRating!.Value)
-                .ValidRating();
-        });
+        When(
+            x => x.MinRating.HasValue,
+            () =>
+            {
+                RuleFor(x => x.MinRating!.Value).ValidRating();
+            }
+        );
 
-        When(x => x.MaxRating.HasValue, () =>
-        {
-            RuleFor(x => x.MaxRating!.Value)
-                .ValidRating();
-        });
+        When(
+            x => x.MaxRating.HasValue,
+            () =>
+            {
+                RuleFor(x => x.MaxRating!.Value).ValidRating();
+            }
+        );
 
         RuleFor(x => x)
             .Must(BeValidRatingRange)
@@ -141,11 +152,9 @@ public class GetReviewsRequestValidator : AbstractValidator<GetReviewsRequest>
             .When(x => x.MinRating.HasValue && x.MaxRating.HasValue)
             .OverridePropertyName("RatingRange");
 
-        RuleFor(x => x.Page)
-            .ValidPage();
+        RuleFor(x => x.Page).ValidPage();
 
-        RuleFor(x => x.PageSize)
-            .ValidPageSize();
+        RuleFor(x => x.PageSize).ValidPageSize();
     }
 
     private static bool BeValidRatingRange(GetReviewsRequest request)
@@ -165,16 +174,11 @@ public class AddReplyRequestValidator : AbstractValidator<AddReplyRequest>
 {
     public AddReplyRequestValidator()
     {
-        RuleFor(x => x.ReviewId)
-            .ValidObjectId()
-            .WithName("Review ID");
+        RuleFor(x => x.ReviewId).ValidObjectId().WithName("Review ID");
 
-        RuleFor(x => x.AuthorId)
-            .NotEmptyGuid()
-            .WithName("Author ID");
+        RuleFor(x => x.AuthorId).NotEmptyGuid().WithName("Author ID");
 
-        RuleFor(x => x.Content)
-            .ValidReplyContent();
+        RuleFor(x => x.Content).ValidReplyContent();
     }
 }
 
@@ -185,53 +189,68 @@ public class UpdateReplyRequestValidator : AbstractValidator<UpdateReplyRequest>
 {
     public UpdateReplyRequestValidator()
     {
-        RuleFor(x => x.ReviewId)
-            .ValidObjectId()
-            .WithName("Review ID");
+        RuleFor(x => x.ReviewId).ValidObjectId().WithName("Review ID");
 
-        RuleFor(x => x.ReplyId)
-            .ValidObjectId()
-            .WithName("Reply ID");
+        RuleFor(x => x.ReplyId).ValidObjectId().WithName("Reply ID");
 
-        RuleFor(x => x.Content)
-            .ValidReplyContent();
+        RuleFor(x => x.Content).ValidReplyContent();
     }
 }
 
 /// <summary>
 /// Validator for BatchDoctorsStatisticsRequest
 /// </summary>
-public class BatchDoctorsStatisticsRequestValidator : AbstractValidator<BatchDoctorsStatisticsRequest>
+public class BatchDoctorsStatisticsRequestValidator
+    : AbstractValidator<BatchDoctorsStatisticsRequest>
 {
     public BatchDoctorsStatisticsRequestValidator()
     {
         RuleFor(x => x.DoctorIds)
             .NotEmpty()
             .WithMessage("At least one doctor ID must be provided")
-            .Must(x => x.Count <= 100)
-            .WithMessage("Maximum 100 doctor IDs allowed per request");
+            .Must(x => x.Count <= 500)
+            .WithMessage("Maximum 500 doctor IDs allowed per request");
 
-        RuleForEach(x => x.DoctorIds)
-            .NotEmptyGuid()
-            .WithName("Doctor ID");
+        RuleForEach(x => x.DoctorIds).NotEmptyGuid().WithName("Doctor ID");
+
+        When(
+            x => x.HospitalId.HasValue,
+            () =>
+            {
+                RuleFor(x => x.HospitalId!.Value)
+                    .NotEmpty()
+                    .WithMessage("Hospital ID cannot be empty")
+                    .WithName("Hospital ID");
+            }
+        );
     }
 }
 
 /// <summary>
 /// Validator for BatchServicesStatisticsRequest
 /// </summary>
-public class BatchServicesStatisticsRequestValidator : AbstractValidator<BatchServicesStatisticsRequest>
+public class BatchServicesStatisticsRequestValidator
+    : AbstractValidator<BatchServicesStatisticsRequest>
 {
     public BatchServicesStatisticsRequestValidator()
     {
         RuleFor(x => x.ServiceIds)
             .NotEmpty()
             .WithMessage("At least one service ID must be provided")
-            .Must(x => x.Count <= 100)
-            .WithMessage("Maximum 100 service IDs allowed per request");
+            .Must(x => x.Count <= 500)
+            .WithMessage("Maximum 500 service IDs allowed per request");
 
-        RuleForEach(x => x.ServiceIds)
-            .NotEmptyGuid()
-            .WithName("Service ID");
+        RuleForEach(x => x.ServiceIds).NotEmptyGuid().WithName("Service ID");
+
+        When(
+            x => x.HospitalId.HasValue,
+            () =>
+            {
+                RuleFor(x => x.HospitalId!.Value)
+                    .NotEmpty()
+                    .WithMessage("Hospital ID cannot be empty")
+                    .WithName("Hospital ID");
+            }
+        );
     }
 }

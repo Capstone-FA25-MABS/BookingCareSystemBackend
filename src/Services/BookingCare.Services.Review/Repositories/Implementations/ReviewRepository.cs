@@ -624,19 +624,25 @@ public class ReviewRepository : IReviewRepository
     /// Gets comprehensive statistics for multiple doctors in a single query
     /// </summary>
     public async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(
-        List<Guid> doctorIds
+        List<Guid> doctorIds,
+        Guid? hospitalId = null
     )
     {
         var doctorIdsStrings = doctorIds.Select(id => id.ToString()).ToList();
 
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument
-            {
-                { "doctorId", new BsonDocument("$in", new BsonArray(doctorIdsStrings)) },
-                { "targetType", "DOCTOR" },
-            }
-        );
+        var matchConditions = new BsonDocument
+        {
+            { "doctorId", new BsonDocument("$in", new BsonArray(doctorIdsStrings)) },
+            { "targetType", "DOCTOR" },
+        };
+
+        // Add hospital filter if provided
+        if (hospitalId.HasValue)
+        {
+            matchConditions.Add("hospitalId", hospitalId.Value.ToString());
+        }
+
+        var matchStage = new BsonDocument("$match", matchConditions);
 
         var groupStage = new BsonDocument(
             "$group",
@@ -701,19 +707,25 @@ public class ReviewRepository : IReviewRepository
     /// Gets comprehensive statistics for multiple services in a single query
     /// </summary>
     public async Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(
-        List<Guid> serviceIds
+        List<Guid> serviceIds,
+        Guid? hospitalId = null
     )
     {
         var serviceIdsStrings = serviceIds.Select(id => id.ToString()).ToList();
 
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument
-            {
-                { "serviceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
-                { "targetType", "SERVICE" },
-            }
-        );
+        var matchConditions = new BsonDocument
+        {
+            { "serviceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
+            { "targetType", "SERVICE" },
+        };
+
+        // Add hospital filter if provided
+        if (hospitalId.HasValue)
+        {
+            matchConditions.Add("hospitalId", hospitalId.Value.ToString());
+        }
+
+        var matchStage = new BsonDocument("$match", matchConditions);
 
         var groupStage = new BsonDocument(
             "$group",
