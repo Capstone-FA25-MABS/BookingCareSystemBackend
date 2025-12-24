@@ -10,6 +10,7 @@ using BookingCare.Services.ServiceMedical.Protos;
 using AutoMapper;
 using BookingCare.Services.Schedule.Enums;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Exceptions;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -190,6 +191,38 @@ public class ScheduleService : IScheduleService
         // Note: We would need to know the doctor and date to invalidate specific cache keys
         // For now, we'll use pattern-based invalidation
         await _cacheService.RemoveByPatternAsync(CacheKeys.SchedulePattern);
+    }
+
+    public async Task<DoctorScheduleExceptionDto> ReviewDoctorScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId)
+    {
+        var exception = await _repository.GetDoctorScheduleExceptionByIdAsync(request.ExceptionId);
+        if (exception == null)
+        {
+            throw new NotFoundException("Doctor schedule exception not found");
+        }
+
+        // Update status and review information
+        exception.Status = request.Status;
+        exception.ReviewedBy = reviewerId;
+        exception.ReviewedAt = DateTime.UtcNow;
+        exception.ReviewComments = request.ReviewComments;
+
+        var updated = await _repository.UpdateDoctorScheduleExceptionAsync(exception);
+
+        // Invalidate related caches
+        var exceptionsCacheKey = CacheKeys.Format(CacheKeys.DoctorExceptions, exception.DoctorId, exception.ExceptionDate.ToString(DateFormat));
+        await _cacheService.RemoveAsync(exceptionsCacheKey);
+
+        var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, exception.DoctorId, exception.ExceptionDate.ToString(DateFormat), "*");
+        await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
+
+        return _mapper.Map<DoctorScheduleExceptionDto>(updated);
+    }
+
+    public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null)
+    {
+        var entities = await _repository.GetPendingDoctorExceptionRequestsAsync(hospitalId, doctorId);
+        return _mapper.Map<List<DoctorScheduleExceptionDto>>(entities);
     }
 
     #endregion
@@ -618,6 +651,38 @@ public class ScheduleService : IScheduleService
 
         // Pattern-based invalidation
         await _cacheService.RemoveByPatternAsync("service_medical_exceptions:*");
+    }
+
+    public async Task<ServiceMedicalScheduleExceptionDto> ReviewServiceMedicalScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId)
+    {
+        var exception = await _repository.GetServiceMedicalScheduleExceptionByIdAsync(request.ExceptionId);
+        if (exception == null)
+        {
+            throw new NotFoundException("Service medical schedule exception not found");
+        }
+
+        // Update status and review information
+        exception.Status = request.Status;
+        exception.ReviewedBy = reviewerId;
+        exception.ReviewedAt = DateTime.UtcNow;
+        exception.ReviewComments = request.ReviewComments;
+
+        var updated = await _repository.UpdateServiceMedicalScheduleExceptionAsync(exception);
+
+        // Invalidate related caches
+        var exceptionsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalExceptions, exception.ServiceMedicalId, exception.ExceptionDate.ToString(DateFormat));
+        await _cacheService.RemoveAsync(exceptionsCacheKey);
+
+        var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, exception.ServiceMedicalId, exception.ExceptionDate.ToString(DateFormat));
+        await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
+
+        return _mapper.Map<ServiceMedicalScheduleExceptionDto>(updated);
+    }
+
+    public async Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null)
+    {
+        var entities = await _repository.GetPendingServiceMedicalExceptionRequestsAsync(hospitalId, serviceMedicalId);
+        return _mapper.Map<List<ServiceMedicalScheduleExceptionDto>>(entities);
     }
 
     #endregion

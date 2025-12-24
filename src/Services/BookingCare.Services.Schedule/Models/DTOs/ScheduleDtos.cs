@@ -38,6 +38,10 @@ public class DoctorScheduleExceptionDto
     public string ExceptionType { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? Reason { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewComments { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -90,6 +94,10 @@ public class ServiceMedicalScheduleExceptionDto
     public string ExceptionType { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? Reason { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewComments { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 

@@ -1,4 +1,5 @@
 using BookingCare.Services.Schedule.Models.Requests;
+using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
@@ -107,5 +108,40 @@ public class ServiceMedicalSchedulesController : BaseApiController
 
         var slots = await _scheduleService.GetServiceMedicalAvailableSlotsAsync(request, currentUserId);
         return Success(slots, "Available slots retrieved successfully");
+    }
+
+    /// <summary>
+    /// List all service medical schedules with filtering (for Staff management)
+    /// </summary>
+    [HttpGet("list")]
+    public async Task<IActionResult> ListServiceMedicalSchedules(
+        [FromQuery] ListServiceMedicalSchedulesRequest request)
+    {
+        // For now, if serviceMedicalId is provided, use existing range endpoint
+        if (request.ServiceMedicalId.HasValue)
+        {
+            var schedules = await _scheduleService.GetServiceMedicalScheduleRangeAsync(new GetServiceMedicalScheduleRequest
+            {
+                ServiceMedicalId = request.ServiceMedicalId.Value,
+                StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1))
+            });
+
+            return Success(new
+            {
+                items = schedules,
+                totalCount = schedules.Count(),
+                pageNumber = request.PageNumber,
+                pageSize = request.PageSize
+            }, "Service medical schedules retrieved successfully");
+        }
+
+        return Success(new
+        {
+            items = new List<ServiceMedicalDailyScheduleDto>(),
+            totalCount = 0,
+            pageNumber = request.PageNumber,
+            pageSize = request.PageSize
+        }, "No service medical ID provided");
     }
 }

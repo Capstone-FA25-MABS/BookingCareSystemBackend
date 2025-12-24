@@ -208,3 +208,46 @@ public class GetSpecialtyAvailableSlotsRequest
     [Required]
     public AppointmentType AppointmentType { get; set; }
 }
+
+/// <summary>
+/// Request to list all doctor schedules with filtering
+/// </summary>
+public class ListDoctorSchedulesRequest
+{
+    public Guid? DoctorId { get; set; }
+    public Guid? HospitalId { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+/// <summary>
+/// Request to list all service medical schedules with filtering
+/// </summary>
+public class ListServiceMedicalSchedulesRequest
+{
+    public Guid? ServiceMedicalId { get; set; }
+    public Guid? HospitalId { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+/// <summary>
+/// Request to approve or reject an exception request
+/// </summary>
+public class ReviewExceptionRequest
+{
+    [Required]
+    [JsonRequired]
+    public Guid ExceptionId { get; set; }
+
+    [Required]
+    [JsonRequired]
+    public ExceptionRequestStatus Status { get; set; } // APPROVED or REJECTED
+
+    [StringLength(500)]
+    public string? ReviewComments { get; set; }
+}

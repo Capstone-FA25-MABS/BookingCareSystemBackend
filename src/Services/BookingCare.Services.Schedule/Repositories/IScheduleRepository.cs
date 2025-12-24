@@ -21,6 +21,9 @@ public interface IScheduleRepository
     Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate);
     Task<DoctorScheduleExceptionEntity> CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception);
     Task DeleteDoctorScheduleExceptionAsync(Guid id);
+    Task<DoctorScheduleExceptionEntity?> GetDoctorScheduleExceptionByIdAsync(Guid id);
+    Task<DoctorScheduleExceptionEntity> UpdateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception);
+    Task<IEnumerable<DoctorScheduleExceptionEntity>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null);
 
     // ClinicException operations
     Task<IEnumerable<ClinicExceptionEntity>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
@@ -52,6 +55,9 @@ public interface IScheduleRepository
     Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate);
     Task<ServiceMedicalScheduleExceptionEntity> CreateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception);
     Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionEntity?> GetServiceMedicalScheduleExceptionByIdAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionEntity> UpdateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception);
+    Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null);
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTime>> GetServiceMedicalAvailableSlotsAsync(Guid serviceMedicalId, DateOnly date);

@@ -104,6 +104,36 @@ public class ScheduleRepository : IScheduleRepository
         }
     }
 
+    public async Task<DoctorScheduleExceptionEntity?> GetDoctorScheduleExceptionByIdAsync(Guid id)
+    {
+        return await _context.DoctorScheduleExceptions.FindAsync(id);
+    }
+
+    public async Task<DoctorScheduleExceptionEntity> UpdateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception)
+    {
+        _context.DoctorScheduleExceptions.Update(exception);
+        await _context.SaveChangesAsync();
+        return exception;
+    }
+
+    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null)
+    {
+        var query = _context.DoctorScheduleExceptions
+            .Where(x => x.Status == ExceptionRequestStatus.PENDING);
+
+        if (doctorId.HasValue)
+        {
+            query = query.Where(x => x.DoctorId == doctorId.Value);
+        }
+
+        // Note: To filter by hospitalId, we would need to join with Doctor table
+        // For now, this is a placeholder - you'll need to implement the join based on your Doctor service
+
+        return await query
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
     #endregion
 
     #region ClinicException operations
@@ -427,6 +457,36 @@ public class ScheduleRepository : IScheduleRepository
             _context.ServiceMedicalScheduleExceptions.Remove(exception);
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task<ServiceMedicalScheduleExceptionEntity?> GetServiceMedicalScheduleExceptionByIdAsync(Guid id)
+    {
+        return await _context.ServiceMedicalScheduleExceptions.FindAsync(id);
+    }
+
+    public async Task<ServiceMedicalScheduleExceptionEntity> UpdateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception)
+    {
+        _context.ServiceMedicalScheduleExceptions.Update(exception);
+        await _context.SaveChangesAsync();
+        return exception;
+    }
+
+    public async Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null)
+    {
+        var query = _context.ServiceMedicalScheduleExceptions
+            .Where(x => x.Status == ExceptionRequestStatus.PENDING);
+
+        if (serviceMedicalId.HasValue)
+        {
+            query = query.Where(x => x.ServiceMedicalId == serviceMedicalId.Value);
+        }
+
+        // Note: To filter by hospitalId, we would need to join with ServiceMedical table
+        // For now, this is a placeholder - you'll need to implement the join based on your ServiceMedical service
+
+        return await query
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
     }
 
     #endregion

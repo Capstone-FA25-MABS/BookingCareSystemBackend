@@ -18,6 +18,8 @@ public interface IScheduleService
     Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date);
     Task<List<DoctorScheduleExceptionDto>> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request);
     Task DeleteDoctorScheduleExceptionAsync(Guid id);
+    Task<DoctorScheduleExceptionDto> ReviewDoctorScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId);
+    Task<IEnumerable<DoctorScheduleExceptionDto>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null);
 
     // ClinicException operations
     Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
@@ -42,6 +44,8 @@ public interface IScheduleService
     Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date);
     Task<List<ServiceMedicalScheduleExceptionDto>> CreateServiceMedicalScheduleExceptionAsync(CreateServiceMedicalScheduleExceptionRequest request);
     Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionDto> ReviewServiceMedicalScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId);
+    Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null);
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request, Guid? currentUserId = null);
