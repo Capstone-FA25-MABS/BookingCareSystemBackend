@@ -38,6 +38,32 @@ public class DoctorScheduleExceptionDto
     public string ExceptionType { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? Reason { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewComments { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// DTO for doctor schedule exceptions with doctor info (for Staff management)
+/// </summary>
+public class DoctorScheduleExceptionWithInfoDto
+{
+    public Guid Id { get; set; }
+    public Guid DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public string? DoctorAvatarUrl { get; set; }
+    public string? DoctorEmail { get; set; }
+    public DateOnly ExceptionDate { get; set; }
+    public AppointmentTime? AppointmentTime { get; set; }
+    public string ExceptionType { get; set; } = string.Empty;
+    public bool IsAvailable { get; set; }
+    public string? Reason { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewComments { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -90,6 +116,10 @@ public class ServiceMedicalScheduleExceptionDto
     public string ExceptionType { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? Reason { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewComments { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -141,4 +171,58 @@ public class SpecialtyAvailableSlotsResponseDto
     /// List of available time slots with capacity information
     /// </summary>
     public List<SpecialtyAvailableSlotDto> AvailableSlots { get; set; } = new();
+}
+
+/// <summary>
+/// DTO for doctor schedule with doctor info (for Staff management)
+/// </summary>
+public class DoctorScheduleWithInfoDto
+{
+    public Guid Id { get; set; }
+    public Guid DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public string? DoctorAvatarUrl { get; set; }
+    public string? DoctorEmail { get; set; }
+    public DateOnly ScheduleDate { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Response DTO for listing doctor schedules by hospital
+/// </summary>
+public class ListDoctorSchedulesResponseDto
+{
+    public List<DoctorScheduleWithInfoDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+}
+
+/// <summary>
+/// DTO for service medical schedule with service info (for Staff management)
+/// </summary>
+public class ServiceMedicalScheduleWithInfoDto
+{
+    public Guid Id { get; set; }
+    public Guid ServiceMedicalId { get; set; }
+    public string ServiceMedicalName { get; set; } = string.Empty;
+    public string? ServiceMedicalImageUrl { get; set; }
+    public string? ServiceCategoryName { get; set; }
+    public DateOnly ScheduleDate { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Response DTO for listing service medical schedules by hospital
+/// </summary>
+public class ListServiceMedicalSchedulesResponseDto
+{
+    public List<ServiceMedicalScheduleWithInfoDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
 }

@@ -842,9 +842,10 @@ public class ReviewService : BaseService, IReviewService
             async () =>
             {
                 LogInfo(
-                    "Getting batch statistics for {Count} doctors",
+                    "Getting batch statistics for {Count} doctors{HospitalFilter}",
                     null,
-                    request.DoctorIds.Count
+                    request.DoctorIds.Count,
+                    request.HospitalId.HasValue ? $" filtered by hospital {request.HospitalId}" : ""
                 );
 
                 // ✅ ValidationFilter đã handle tất cả validation rồi
@@ -853,7 +854,8 @@ public class ReviewService : BaseService, IReviewService
                 var uniqueDoctorIds = request.DoctorIds.Distinct().ToList();
 
                 var result = await _reviewRepository.GetBatchDoctorsStatisticsAsync(
-                    uniqueDoctorIds
+                    uniqueDoctorIds,
+                    request.HospitalId
                 );
 
                 LogInfo(
@@ -878,9 +880,10 @@ public class ReviewService : BaseService, IReviewService
             async () =>
             {
                 LogInfo(
-                    "Getting batch statistics for {Count} services",
+                    "Getting batch statistics for {Count} services{HospitalFilter}",
                     null,
-                    request.ServiceIds.Count
+                    request.ServiceIds.Count,
+                    request.HospitalId.HasValue ? $" filtered by hospital {request.HospitalId}" : ""
                 );
 
                 // ✅ ValidationFilter đã handle tất cả validation rồi
@@ -889,7 +892,8 @@ public class ReviewService : BaseService, IReviewService
                 var uniqueServiceIds = request.ServiceIds.Distinct().ToList();
 
                 var result = await _reviewRepository.GetBatchServicesStatisticsAsync(
-                    uniqueServiceIds
+                    uniqueServiceIds,
+                    request.HospitalId
                 );
 
                 LogInfo(
