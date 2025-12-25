@@ -109,7 +109,14 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("servicemedical-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -10,6 +10,7 @@ using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Shared.FileUpload.Services;
@@ -45,7 +46,7 @@ builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
-builder.Services.AddScoped<ILocationApiService, LocationApiService>();
+builder.Services.AddScoped<BookingCare.Services.Doctor.Services.Interfaces.ILocationApiService, LocationApiService>();
 builder.Services.AddSingleton<BookingCare.Services.Doctor.Services.DatabaseInitializationService>();
 
 // AutoMapper configuration
@@ -100,7 +101,14 @@ builder.Services.AddS3FileUpload(builder.Configuration);
 builder.Services.AddGrpc();
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "doctor-service-queue");
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("doctor-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline.
 app.UseCommonSwaggerUI("Doctor");

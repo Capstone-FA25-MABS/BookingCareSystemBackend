@@ -8,6 +8,7 @@ using BookingCare.Services.Communication.Services.Implementations;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Shared.Cache.Extensions; // Add Redis Cache support
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events; // 🎯 Add EventBus events
 using BookingCare.Shared.EventBus.Extensions; // 🎯 Add EventBus extensions
@@ -167,7 +168,14 @@ builder.Services.AddHealthChecks();
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("communication-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Initialize MongoDB indexes
 await app.Services.InitializeMongoDbAsync();

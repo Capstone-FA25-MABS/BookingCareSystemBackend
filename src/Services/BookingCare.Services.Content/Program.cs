@@ -5,6 +5,7 @@ using BookingCare.Services.Content.Services;
 using BookingCare.Services.Content.Validators;
 using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
 using FluentValidation;
@@ -64,7 +65,14 @@ builder.Services.AddGrpcClient<UserService.UserServiceClient>(o =>
     o.Address = new Uri(endpoint);
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("content-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // HTTP pipeline
 app.UseCommonSwaggerUI("Content");

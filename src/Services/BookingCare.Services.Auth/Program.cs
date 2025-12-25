@@ -13,6 +13,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Providers;
 using BookingCare.Shared.Saga.Extensions;
@@ -185,7 +186,14 @@ if (redisEnabled)
 builder.Services.Configure<BookingCare.Services.Auth.Configuration.DefaultAvatarsOptions>(
     builder.Configuration.GetSection(BookingCare.Services.Auth.Configuration.DefaultAvatarsOptions.SectionName));
 
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("auth-service");
+
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Initialize database and default data
 try

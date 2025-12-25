@@ -4,6 +4,7 @@ using BookingCare.Services.Review.Validators;
 using BookingCare.Services.Review.Grpc.Services;
 using BookingCare.Services.Review.Filters;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Protos;
 using FluentValidation;
@@ -83,7 +84,14 @@ builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.Appointme
     options.Address = new Uri(appointmentServiceAddress);
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("review-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Review");

@@ -13,6 +13,7 @@ using BookingCare.Services.Notification.Utils.OTP;
 using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
@@ -116,7 +117,14 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
     o.Address = new Uri(authServiceUrl);
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("notification-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline
 app.UseCommonSwaggerUI("Notification");

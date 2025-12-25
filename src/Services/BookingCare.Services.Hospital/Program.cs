@@ -11,6 +11,7 @@ using BookingCare.Services.Hospital.Services.Implementations;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.ServiceMedical.Protos;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
@@ -56,7 +57,7 @@ builder.Services.AddScoped<IHospitalService, HospitalService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
 builder.Services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
-builder.Services.AddScoped<ILocationApiService, LocationApiService>();
+builder.Services.AddScoped<BookingCare.Services.Hospital.Services.Interfaces.ILocationApiService, LocationApiService>();
 builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationService>();
 builder.Services.AddScoped<IAdminSignatureService, AdminSignatureService>();
 builder.Services.AddScoped<IContractGenerationService, ContractGenerationService>();
@@ -131,7 +132,7 @@ builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
     var doctorClient = sp.GetRequiredService<DoctorService.DoctorServiceClient>();
     var serviceMedicalClient =
         sp.GetRequiredService<ServiceMedicalService.ServiceMedicalServiceClient>();
-    var locationApiService = sp.GetRequiredService<ILocationApiService>();
+    var locationApiService = sp.GetRequiredService<BookingCare.Services.Hospital.Services.Interfaces.ILocationApiService>();
     return new HospitalServiceDependencies(
         authClient,
         doctorClient,
@@ -153,7 +154,14 @@ builder.Services.AddScoped<SubscriptionServices>(sp =>
     );
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("hospital-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline.
 app.UseCommonSwaggerUI("Hospital");

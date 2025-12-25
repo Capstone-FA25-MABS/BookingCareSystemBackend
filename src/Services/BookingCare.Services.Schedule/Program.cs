@@ -4,6 +4,7 @@ using BookingCare.Services.Schedule.Services;
 using BookingCare.Services.Schedule.Mappings;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.EntityFrameworkCore;
 
@@ -67,7 +68,14 @@ builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.Appointme
     options.Address = new Uri(appointmentAddress);
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("schedule-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

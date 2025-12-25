@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "BookingCare Infrastructure Monitoring - Database, Message Queue, Cache, and Service Discovery monitoring",
+  "description": "BookingCare Microservices Performance - Detailed monitoring of all 19 microservices",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -44,9 +44,9 @@
         "x": 0,
         "y": 0
       },
-      "id": 200,
+      "id": 300,
       "panels": [],
-      "title": "🗄️ Database Infrastructure",
+      "title": "🚪 API Gateway Performance",
       "type": "row"
     },
     {
@@ -54,14 +54,14 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "SQL Server database connections and performance",
+      "description": "API Gateway request rate, latency and error rate",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Connections",
+            "axisLabel": "Requests/sec",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -102,7 +102,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -112,10 +112,10 @@
         "x": 0,
         "y": 1
       },
-      "id": 201,
+      "id": 301,
       "options": {
         "legend": {
-          "calcs": ["last"],
+          "calcs": ["last", "max"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -126,17 +126,17 @@
       },
       "targets": [
         {
-          "expr": "sqlserver_connections{database=~\".*bookingcare.*\"}",
-          "legendFormat": "{{database}} - Connections",
+          "expr": "sum(rate(http_requests_total{service=\"api-gateway\"}[5m])) by (method, endpoint)",
+          "legendFormat": "{{method}} {{endpoint}}",
           "refId": "A"
         },
         {
-          "expr": "sqlserver_database_io_read_bytes{database=~\".*bookingcare.*\"} + sqlserver_database_io_write_bytes{database=~\".*bookingcare.*\"}",
-          "legendFormat": "{{database}} - IO Bytes",
+          "expr": "sum(rate(http_requests_total{service=\"api-gateway\", status=~\"5..\"}[5m])) by (endpoint)",
+          "legendFormat": "Errors - {{endpoint}}",
           "refId": "B"
         }
       ],
-      "title": "💾 SQL Server Database Metrics",
+      "title": "🚪 API Gateway - Request Rate & Errors",
       "type": "timeseries"
     },
     {
@@ -144,14 +144,14 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "MongoDB performance and connection metrics",
+      "description": "API Gateway response times and latency percentiles",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Operations/sec",
+            "axisLabel": "Response Time (ms)",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -187,12 +187,16 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 500
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 1000
               }
             ]
           },
-          "unit": "ops"
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -202,10 +206,10 @@
         "x": 12,
         "y": 1
       },
-      "id": 202,
+      "id": 302,
       "options": {
         "legend": {
-          "calcs": ["last"],
+          "calcs": ["last", "max"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -216,22 +220,22 @@
       },
       "targets": [
         {
-          "expr": "rate(mongodb_op_counters_total[5m])",
-          "legendFormat": "{{type}} Operations",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{service=\"api-gateway\"}[5m])) by (le)) * 1000",
+          "legendFormat": "P50 Latency",
           "refId": "A"
         },
         {
-          "expr": "mongodb_connections{state=\"current\"}",
-          "legendFormat": "Current Connections",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"api-gateway\"}[5m])) by (le)) * 1000",
+          "legendFormat": "P95 Latency",
           "refId": "B"
         },
         {
-          "expr": "mongodb_memory{type=\"resident\"}",
-          "legendFormat": "Memory Usage (MB)",
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=\"api-gateway\"}[5m])) by (le)) * 1000",
+          "legendFormat": "P99 Latency",
           "refId": "C"
         }
       ],
-      "title": "🍃 MongoDB Performance",
+      "title": "🚪 API Gateway - Response Time Distribution",
       "type": "timeseries"
     },
     {
@@ -242,9 +246,9 @@
         "x": 0,
         "y": 9
       },
-      "id": 210,
+      "id": 310,
       "panels": [],
-      "title": "🔄 Message Queue & Cache",
+      "title": "🔐 Core Services Performance",
       "type": "row"
     },
     {
@@ -252,102 +256,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "RabbitMQ message queue performance",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Messages",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 10
-      },
-      "id": 211,
-      "options": {
-        "legend": {
-          "calcs": ["last"],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "rabbitmq_queue_messages",
-          "legendFormat": "{{queue}} - Messages",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(rabbitmq_queue_messages_published_total[5m])",
-          "legendFormat": "{{queue}} - Published/sec",
-          "refId": "B"
-        },
-        {
-          "expr": "rate(rabbitmq_queue_messages_delivered_total[5m])",
-          "legendFormat": "{{queue}} - Delivered/sec",
-          "refId": "C"
-        }
-      ],
-      "title": "🐰 RabbitMQ Message Queue",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Redis cache performance and memory usage",
+      "description": "Authentication Service performance metrics",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -395,17 +304,17 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 8,
+        "x": 0,
         "y": 10
       },
-      "id": 212,
+      "id": 311,
       "options": {
         "legend": {
           "calcs": ["last"],
@@ -419,27 +328,17 @@
       },
       "targets": [
         {
-          "expr": "redis_memory_used_bytes",
-          "legendFormat": "Memory Used",
+          "expr": "sum(rate(http_requests_total{service=\"auth-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
           "refId": "A"
         },
         {
-          "expr": "redis_connected_clients",
-          "legendFormat": "Connected Clients",
+          "expr": "sum(rate(grpc_requests_total{service=\"auth-service\"}[5m])) by (method)",
+          "legendFormat": "{{method}} - gRPC/sec",
           "refId": "B"
-        },
-        {
-          "expr": "rate(redis_commands_processed_total[5m])",
-          "legendFormat": "Commands/sec",
-          "refId": "C"
-        },
-        {
-          "expr": "redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100",
-          "legendFormat": "Hit Rate %",
-          "refId": "D"
         }
       ],
-      "title": "⚡ Redis Cache Performance",
+      "title": "🔐 Auth Service Performance",
       "type": "timeseries"
     },
     {
@@ -447,14 +346,104 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Consul service discovery health",
+      "description": "User Service performance metrics",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Services",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "id": 312,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"user-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "dotnet_collection_count_total{service=\"user-service\"}",
+          "legendFormat": "GC Collections",
+          "refId": "B"
+        }
+      ],
+      "title": "👥 User Service Performance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Appointment Service performance metrics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -505,7 +494,7 @@
         "x": 16,
         "y": 10
       },
-      "id": 213,
+      "id": 313,
       "options": {
         "legend": {
           "calcs": ["last"],
@@ -519,22 +508,17 @@
       },
       "targets": [
         {
-          "expr": "consul_health_service_query_total{status=\"passing\"}",
-          "legendFormat": "Healthy Services",
+          "expr": "sum(rate(http_requests_total{service=\"appointment-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
           "refId": "A"
         },
         {
-          "expr": "consul_health_service_query_total{status=\"warning\"}",
-          "legendFormat": "Warning Services",
+          "expr": "appointment_bookings_total",
+          "legendFormat": "Total Bookings",
           "refId": "B"
-        },
-        {
-          "expr": "consul_health_service_query_total{status=\"critical\"}",
-          "legendFormat": "Critical Services",
-          "refId": "C"
         }
       ],
-      "title": "🗺️ Consul Service Discovery",
+      "title": "📅 Appointment Service Performance",
       "type": "timeseries"
     },
     {
@@ -545,9 +529,9 @@
         "x": 0,
         "y": 18
       },
-      "id": 220,
+      "id": 320,
       "panels": [],
-      "title": "📊 System Resources",
+      "title": "🏥 Healthcare Services",
       "type": "row"
     },
     {
@@ -555,14 +539,14 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "System CPU usage across all nodes",
+      "description": "Doctor Service performance and activity",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "CPU %",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -590,8 +574,6 @@
             }
           },
           "mappings": [],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -600,26 +582,22 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 70
-              },
-              {
                 "color": "red",
-                "value": 85
+                "value": 80
               }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 19
       },
-      "id": 221,
+      "id": 321,
       "options": {
         "legend": {
           "calcs": ["last"],
@@ -633,12 +611,17 @@
       },
       "targets": [
         {
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "{{instance}} - CPU Usage",
+          "expr": "sum(rate(http_requests_total{service=\"doctor-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
           "refId": "A"
+        },
+        {
+          "expr": "doctor_profiles_active",
+          "legendFormat": "Active Doctors",
+          "refId": "B"
         }
       ],
-      "title": "🖥️ System CPU Usage",
+      "title": "👨‍⚕️ Doctor Service Performance",
       "type": "timeseries"
     },
     {
@@ -646,14 +629,14 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "System memory usage across all nodes",
+      "description": "Hospital Service performance and capacity",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Memory %",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -681,8 +664,6 @@
             }
           },
           "mappings": [],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -691,26 +672,22 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 75
-              },
-              {
                 "color": "red",
-                "value": 90
+                "value": 80
               }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 19
       },
-      "id": 222,
+      "id": 322,
       "options": {
         "legend": {
           "calcs": ["last"],
@@ -724,19 +701,322 @@
       },
       "targets": [
         {
-          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-          "legendFormat": "{{instance}} - Memory Usage",
+          "expr": "sum(rate(http_requests_total{service=\"hospital-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
           "refId": "A"
+        },
+        {
+          "expr": "hospital_capacity_total",
+          "legendFormat": "Total Capacity",
+          "refId": "B"
         }
       ],
-      "title": "🧠 System Memory Usage",
+      "title": "🏥 Hospital Service Performance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Payment Service transaction performance",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 19
+      },
+      "id": 323,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"payment-service\"}[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}} - Requests/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "payment_transactions_total",
+          "legendFormat": "Total Transactions",
+          "refId": "B"
+        },
+        {
+          "expr": "payment_success_rate",
+          "legendFormat": "Success Rate %",
+          "refId": "C"
+        }
+      ],
+      "title": "💳 Payment Service Performance",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 330,
+      "panels": [],
+      "title": "📊 Supporting Services",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Notification Service delivery performance",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 331,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(notification_sent_total[5m])) by (type)",
+          "legendFormat": "{{type}} - Sent/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "notification_delivery_rate",
+          "legendFormat": "Delivery Rate %",
+          "refId": "B"
+        },
+        {
+          "expr": "notification_queue_size",
+          "legendFormat": "Queue Size",
+          "refId": "C"
+        }
+      ],
+      "title": "🔔 Notification Service Performance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "AI Service prediction accuracy and performance",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 332,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_predictions_total[5m])) by (model)",
+          "legendFormat": "{{model}} - Predictions/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "ai_model_accuracy",
+          "legendFormat": "Model Accuracy %",
+          "refId": "B"
+        },
+        {
+          "expr": "ai_inference_duration_seconds",
+          "legendFormat": "Inference Duration (s)",
+          "refId": "C"
+        }
+      ],
+      "title": "🤖 AI Service Performance",
       "type": "timeseries"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 30,
   "style": "dark",
-  "tags": ["bookingcare", "infrastructure", "database", "monitoring"],
+  "tags": ["bookingcare", "microservices", "performance", "monitoring"],
   "templating": {
     "list": [
       {
@@ -767,17 +1047,44 @@
           "value": "$__all"
         },
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "label_values(node_cpu_seconds_total, instance)",
+        "definition": "label_values(http_requests_total, service)",
         "description": null,
         "error": null,
         "hide": 0,
         "includeAll": true,
-        "label": "Instance",
+        "label": "Service",
         "multi": true,
-        "name": "instance",
+        "name": "service",
         "options": [],
         "query": {
-          "query": "label_values(node_cpu_seconds_total, instance)",
+          "query": "label_values(http_requests_total, service)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "${DS_PROMETHEUS}",
+        "definition": "label_values(http_requests_total{service=\"$service\"}, endpoint)",
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": "Endpoint",
+        "multi": true,
+        "name": "endpoint",
+        "options": [],
+        "query": {
+          "query": "label_values(http_requests_total{service=\"$service\"}, endpoint)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
@@ -794,303 +1101,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "BookingCare - Infrastructure Monitoring",
-  "uid": "bookingcare-infrastructure",
-  "version": 1
-}
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100",
-          "refId": "A",
-          "legendFormat": "Available Memory %"
-        }
-      ],
-      "title": "Memory Usage",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "(1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))) * 100",
-          "refId": "A",
-          "legendFormat": "CPU Usage %"
-        }
-      ],
-      "title": "CPU Usage",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "rate(node_network_receive_bytes_total[5m])",
-          "refId": "A",
-          "legendFormat": "Receive"
-        },
-        {
-          "expr": "rate(node_network_transmit_bytes_total[5m])",
-          "refId": "B",
-          "legendFormat": "Transmit"
-        }
-      ],
-      "title": "Network I/O",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "redis_connected_clients",
-          "refId": "A",
-          "legendFormat": "Redis Clients"
-        }
-      ],
-      "title": "Redis Connected Clients",
-      "type": "timeseries"
-    }
-  ],
-  "schemaVersion": 27,
-  "style": "dark",
-  "tags": ["infrastructure", "database"],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "Infrastructure & Database Monitoring",
-  "uid": "bookingcare-infrastructure",
+  "title": "BookingCare - Microservices Performance",
+  "uid": "bookingcare-microservices",
   "version": 1
 }

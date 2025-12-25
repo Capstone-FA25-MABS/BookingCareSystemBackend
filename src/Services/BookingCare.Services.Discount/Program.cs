@@ -4,6 +4,7 @@ using BookingCare.Services.Discount.Middlewares;
 using BookingCare.Services.Discount.Repositories;
 using BookingCare.Services.Discount.Services;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,7 +57,14 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("discount-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

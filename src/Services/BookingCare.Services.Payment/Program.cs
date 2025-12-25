@@ -12,6 +12,7 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Validators;
 using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
@@ -160,7 +161,14 @@ builder.Services.Configure<SwaggerGenOptions>(c =>
     }
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("payment-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Ensure database is created
 await EnsureDatabaseCreated(app);

@@ -341,15 +341,23 @@ services:
       - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9090/-/healthy",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -378,7 +386,15 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/api/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -397,9 +413,9 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -478,6 +494,8 @@ services:
       - AWS__S3__Region=${S3_REGION}
       - Services__Hospital__GrpcUrl=http://hospital-service:6104
       - Services__Doctor__GrpcUrl=http://doctor-service:6108
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -501,6 +519,8 @@ services:
       - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Analytics
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -541,6 +561,8 @@ services:
       - AWS__S3__SecretKey=${S3_SECRET_KEY}
       - AWS__S3__BucketName=${S3_BUCKET_NAME}
       - AWS__S3__Region=${S3_REGION}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -580,6 +602,8 @@ services:
       - ExternalAuth__Google__ClientId=${GOOGLE_CLIENT_ID}
       - ExternalAuth__Facebook__AppId=${FACEBOOK_APP_ID}
       - ExternalAuth__Facebook__AppSecret=${FACEBOOK_APP_SECRET}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -619,6 +643,8 @@ services:
       - AWS__S3__SecretKey=${S3_SECRET_KEY}
       - AWS__S3__BucketName=${S3_BUCKET_NAME}
       - AWS__S3__Region=${S3_REGION}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -641,6 +667,8 @@ services:
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${CONTENT_CONNECTION_STRING}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -669,6 +697,8 @@ services:
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
       - RabbitMQ__VirtualHost=${RABBITMQ_DEFAULT_VHOST}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -705,6 +735,8 @@ services:
       - GrpcClients__Auth__Address=http://auth-service:6103
       - GrpcClients__Hopital__Address=http://hospital-service:6104
       - GrpcClients__Review__Address=http://review-service:6112
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -728,6 +760,8 @@ services:
       - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Favorites
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -765,6 +799,8 @@ services:
       - GrpcClients__ServiceMedical__Address=http://servicemedical-service:6115
       - GrpcClients__Review__Address=http://review-service:6112
       - GrpcClients__Notification__Address=http://notification-service:6110
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -799,6 +835,8 @@ services:
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
       - OtpVerification__Secret=${OTP_VERIFICATION_SECRET}
       - AuthService__GrpcUrl=http://auth-service:6103
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -845,6 +883,8 @@ services:
       - StripeConfiguration__Currency=${STRIPE_CURRENCY}
       - Services__User__GrpcUrl=http://user-service:6116
       - Services__Appointment__GrpcUrl=http://appointment-service:6102
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -871,6 +911,8 @@ services:
       - Services__Auth__GrpcUrl=http://auth-service:6103
       - Services__User__GrpcUrl=http://user-service:6116
       - Services__Appointment__GrpcUrl=http://appointment-service:6102
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -893,6 +935,8 @@ services:
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
       - Saga__ConnectionString=${SAGA_CONNECTION_STRING}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -927,6 +971,8 @@ services:
       - GrpcClients__Doctor__Address=http://doctor-service:6108
       - GrpcClients__ServiceMedical__Address=http://servicemedical-service:6115
       - GrpcClients__Appointment__Address=http://appointment-service:6102
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -956,6 +1002,8 @@ services:
       - AWS__S3__SecretKey=${S3_SECRET_KEY}
       - AWS__S3__BucketName=${S3_BUCKET_NAME}
       - AWS__S3__Region=${S3_REGION}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -988,6 +1036,8 @@ services:
       - AWS__S3__SecretKey=${S3_SECRET_KEY}
       - AWS__S3__BucketName=${S3_BUCKET_NAME}
       - AWS__S3__Region=${S3_REGION}
+      - ENABLE_PROMETHEUS_METRICS=true
+      - METRICS_PATH=/metrics
     networks:
       - bookingcare-network
     restart: unless-stopped

@@ -1,0 +1,481 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BookingCare - Service Monitoring",
+    "tags": ["bookingcare", "service-monitoring", "microservices"],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "label": "Service",
+          "query": "label_values(bookingcare_operations_total, service)",
+          "refresh": "load",
+          "multi": false,
+          "includeAll": false,
+          "allValue": null,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Overview - $service",
+        "type": "singlestat",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "up{job=~\".*$service.*\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "text": "UP"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "unit": "none"
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate - $service",
+        "type": "stat",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"$service\"}[5m]))",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "reqps",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Success Rate - $service",
+        "type": "stat",
+        "gridPos": {
+          "x": 6,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"$service\",result=\"success\"}[5m])) / sum(rate(bookingcare_operations_total{service=\"$service\"}[5m])) * 100",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 90
+                },
+                {
+                  "color": "green",
+                  "value": 95
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Error Rate - $service",
+        "type": "stat",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_errors_total{service=\"$service\"}[5m]))",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "reqps",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 5
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Average Response Time - $service",
+        "type": "stat",
+        "gridPos": {
+          "x": 18,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "avg(bookingcare_operation_duration_seconds{service=\"$service\"})",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 0.5
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Request Volume Over Time - $service",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 10,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"$service\"}[1m])) by (operation)",
+            "format": "time_series",
+            "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ],
+        "legend": {
+          "show": true,
+          "values": false,
+          "min": false,
+          "max": false,
+          "current": false,
+          "total": false,
+          "avg": false
+        }
+      },
+      {
+        "id": 7,
+        "title": "Response Time Percentiles - $service",
+        "type": "graph",
+        "gridPos": {
+          "x": 12,
+          "y": 10,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(bookingcare_operation_duration_seconds_bucket{service=\"$service\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "50th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(bookingcare_operation_duration_seconds_bucket{service=\"$service\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "95th percentile",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(bookingcare_operation_duration_seconds_bucket{service=\"$service\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "99th percentile",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response Time (s)",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Database Performance - $service",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 18,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "avg(bookingcare_database_duration_ms{service=\"$service\"}) by (operation, table)",
+            "format": "time_series",
+            "legendFormat": "{{operation}} on {{table}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (ms)",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "External API Calls - $service",
+        "type": "graph",
+        "gridPos": {
+          "x": 12,
+          "y": 18,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_external_api_duration_ms_count{service=\"$service\"}[5m])) by (api)",
+            "format": "time_series",
+            "legendFormat": "{{api}} calls/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(bookingcare_external_api_duration_ms{service=\"$service\"}) by (api)",
+            "format": "time_series",
+            "legendFormat": "{{api}} avg duration",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Calls/sec | Duration (ms)",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Business Metrics - $service",
+        "type": "table",
+        "gridPos": {
+          "x": 0,
+          "y": 26,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"$service\"}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true,
+                "job": true,
+                "instance": true,
+                "service": true
+              },
+              "renameByName": {
+                "item_type": "Metric",
+                "Value": "Current Value"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Error Breakdown - $service",
+        "type": "piechart",
+        "gridPos": {
+          "x": 12,
+          "y": 26,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_errors_total{service=\"$service\"}[5m])) by (error_type)",
+            "format": "time_series",
+            "legendFormat": "{{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "visible",
+            "placement": "right"
+          },
+          "displayLabels": ["name", "percent"]
+        }
+      },
+      {
+        "id": 12,
+        "title": "Service Health Checks - $service",
+        "type": "logs",
+        "gridPos": {
+          "x": 0,
+          "y": 34,
+          "w": 24,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "{job=~\".*$service.*\"} |= \"health\" or \"error\" or \"exception\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

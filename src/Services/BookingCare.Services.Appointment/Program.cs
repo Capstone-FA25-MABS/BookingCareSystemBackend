@@ -8,6 +8,7 @@ using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Services;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
@@ -155,7 +156,14 @@ builder.Services.AddGrpc();
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("appointment-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline
 app.UseCommonSwaggerUI("Appointment");

@@ -1,0 +1,452 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BookingCare - Authentication Service Dashboard",
+    "tags": ["bookingcare", "auth-service", "authentication"],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Authentication Service Status",
+        "type": "singlestat",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "up{job=~\".*auth.*\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "text": "HEALTHY"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Sessions",
+        "type": "stat",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"auth-service\",item_type=\"active_sessions\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Logged In Users",
+        "type": "stat",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"auth-service\",item_type=\"logged_in_users\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Authentication Success Rate",
+        "type": "stat",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"login\",result=\"success\"}[5m])) / sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"login\"}[5m])) * 100",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 90
+                },
+                {
+                  "color": "green",
+                  "value": 95
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Login Attempts Over Time",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"login\",result=\"success\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Successful Logins",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"login\",result=\"failure\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Failed Logins",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Attempts/sec",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ],
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Authentication Operations Breakdown",
+        "type": "piechart",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\"}[5m])) by (operation)",
+            "format": "time_series",
+            "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "visible",
+            "placement": "right"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Token Operations",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"token_refresh\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Token Refreshes",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"logout\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Logouts",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(bookingcare_errors_total{service=\"auth-service\",error_type=\"TokenExpired\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Token Expired Errors",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Operations/sec",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Authentication Response Times",
+        "type": "graph",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(bookingcare_operation_duration_seconds_bucket{service=\"auth-service\",operation=\"login\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Login - 50th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(bookingcare_operation_duration_seconds_bucket{service=\"auth-service\",operation=\"login\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Login - 95th percentile",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(bookingcare_operation_duration_seconds_bucket{service=\"auth-service\",operation=\"token_refresh\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Token Refresh - 50th percentile",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response Time (s)",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Database Operations - Auth",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "avg(bookingcare_database_duration_ms{service=\"auth-service\"}) by (operation, table)",
+            "format": "time_series",
+            "legendFormat": "{{operation}} on {{table}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (ms)",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Authentication Errors",
+        "type": "table",
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_errors_total{service=\"auth-service\"}[5m])) by (error_type, operation)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true,
+                "job": true,
+                "instance": true,
+                "service": true
+              },
+              "renameByName": {
+                "error_type": "Error Type",
+                "operation": "Operation",
+                "Value": "Error Rate (/5m)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "User Registration Stats",
+        "type": "stat",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"register\"}[1h]))",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "reqps",
+            "displayName": "Registrations/hour"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Password Reset Requests",
+        "type": "stat",
+        "gridPos": {
+          "x": 6,
+          "y": 28,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"auth-service\",operation=\"password_reset\"}[1h]))",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "reqps",
+            "displayName": "Password Resets/hour"
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Security Events",
+        "type": "logs",
+        "gridPos": {
+          "x": 12,
+          "y": 28,
+          "w": 12,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "{job=~\".*auth.*\"} |= \"failed\" or \"blocked\" or \"suspicious\" or \"security\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

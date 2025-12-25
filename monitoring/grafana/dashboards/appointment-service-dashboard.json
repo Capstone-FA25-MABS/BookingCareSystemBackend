@@ -1,0 +1,487 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BookingCare - Appointment Service Dashboard", 
+    "tags": ["bookingcare", "appointment-service", "appointments"],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Appointment Service Status",
+        "type": "singlestat",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "up{job=~\".*appointment.*\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "text": "HEALTHY"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Pending Appointments",
+        "type": "stat",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"appointment-service\",item_type=\"pending_appointments\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "red",
+                  "value": 100
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Confirmed Appointments",
+        "type": "stat",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"appointment-service\",item_type=\"confirmed_appointments\"}",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Appointment Success Rate",
+        "type": "stat",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"create\",result=\"success\"}[5m])) / sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"create\"}[5m])) * 100",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 85
+                },
+                {
+                  "color": "green",
+                  "value": 95
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Appointment Operations Over Time",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"create\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Appointments Created",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"confirm\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Appointments Confirmed",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"cancel\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Appointments Cancelled",
+            "refId": "C"
+          },
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"complete\"}[1m]))",
+            "format": "time_series",
+            "legendFormat": "Appointments Completed",
+            "refId": "D"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Operations/sec",
+            "min": 0
+          }
+        ],
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Appointment Status Distribution",
+        "type": "piechart",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "bookingcare_active_items{service=\"appointment-service\"} > 0",
+            "format": "time_series",
+            "legendFormat": "{{item_type}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "visible",
+            "placement": "right"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Appointment Response Times",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(bookingcare_operation_duration_seconds_bucket{service=\"appointment-service\",operation=\"create\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Create - 50th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(bookingcare_operation_duration_seconds_bucket{service=\"appointment-service\",operation=\"create\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Create - 95th percentile",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(bookingcare_operation_duration_seconds_bucket{service=\"appointment-service\",operation=\"search\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Search - 50th percentile",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(bookingcare_operation_duration_seconds_bucket{service=\"appointment-service\",operation=\"search\"}[5m]))",
+            "format": "time_series",
+            "legendFormat": "Search - 95th percentile",
+            "refId": "D"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response Time (s)",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Cancellation Reasons",
+        "type": "bargauge",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_operations_total{service=\"appointment-service\",operation=\"cancel\"}[5m])) by (reason)",
+            "format": "time_series",
+            "legendFormat": "{{reason}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Database Performance - Appointments",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "avg(bookingcare_database_duration_ms{service=\"appointment-service\"}) by (operation, table)",
+            "format": "time_series",
+            "legendFormat": "{{operation}} on {{table}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (ms)",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Appointment Errors",
+        "type": "table",
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(bookingcare_errors_total{service=\"appointment-service\"}[5m])) by (error_type, operation)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true,
+                "job": true,
+                "instance": true,
+                "service": true
+              },
+              "renameByName": {
+                "error_type": "Error Type",
+                "operation": "Operation",
+                "Value": "Error Rate (/5m)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Daily Appointment Statistics",
+        "type": "stat",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 8,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(bookingcare_operations_total{service=\"appointment-service\",operation=\"create\",result=\"success\"}[24h]))",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short",
+            "displayName": "Appointments Created Today"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Average Wait Time",
+        "type": "stat",
+        "gridPos": {
+          "x": 8,
+          "y": 28,
+          "w": 8,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "avg(bookingcare_business_metrics{service=\"appointment-service\",metric_name=\"average_wait_time\"})",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "unit": "m",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 15
+                },
+                {
+                  "color": "red",
+                  "value": 30
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Recent Appointment Activity",
+        "type": "logs",
+        "gridPos": {
+          "x": 16,
+          "y": 28,
+          "w": 8,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "{job=~\".*appointment.*\"} |= \"created\" or \"confirmed\" or \"cancelled\" or \"completed\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "wrapLogMessage": true,
+          "enableLogDetails": true,
+          "sortOrder": "Descending"
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

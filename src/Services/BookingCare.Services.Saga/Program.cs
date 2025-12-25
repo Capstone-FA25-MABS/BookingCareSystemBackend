@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.Saga.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -32,7 +33,14 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1.0", new() { Title = "BookingCare Saga API", Version = "v1.0" });
 });
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("saga-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

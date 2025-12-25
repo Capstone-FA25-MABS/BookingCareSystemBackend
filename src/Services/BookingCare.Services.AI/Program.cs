@@ -8,6 +8,7 @@ using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Services.AI.Workflows;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
@@ -177,7 +178,14 @@ builder.Services.AddGlobalExceptionHandling();
 // Add logging
 builder.Logging.AddCommonLogging();
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("ai-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -1,6 +1,7 @@
 ﻿using BookingCare.Services.Favorites.Extensions;
 using BookingCare.Services.Favorites.Services.Grpc;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Versioning;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,7 +37,14 @@ builder.Services.AddValidationServices();
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
+
+// Add BookingCare metrics
+builder.Services.AddBookingCareMetrics("favorites-service");
 var app = builder.Build();
+
+// Enable metrics if configured
+var enableMetrics = Environment.GetEnvironmentVariable("ENABLE_PROMETHEUS_METRICS") == "true";
+app.UseBookingCareMetrics(enableMetrics);
 
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Favorites");
