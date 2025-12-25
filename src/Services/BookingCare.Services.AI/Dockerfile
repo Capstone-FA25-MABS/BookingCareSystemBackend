@@ -1,5 +1,5 @@
 # Use the official .NET 8 runtime as the base image for final stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-jammy AS base
 USER app
 WORKDIR /app
 
@@ -39,11 +39,79 @@ RUN dotnet publish "BookingCare.Services.AI.csproj" -c $BUILD_CONFIGURATION -o /
 # Final stage: create the runtime image
 FROM base AS final
 
-# Install curl for health checks
+# Switch to root user to install packages
 USER root
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Switch back to app user for security
+# Hack to Allow Tesseract to work
+RUN apt-get update \
+    && apt-get install -y --allow-unauthenticated \
+        curl \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-vie \
+        libleptonica-dev \
+        libtesseract-dev \
+        libfontconfig1 \
+        libfreetype6 \
+        libx11-6 \
+        libxcb1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download Vietnamese and English language data (using faster tessdata for better performance)
+RUN apt-get update && \
+    apt-get install -y --allow-unauthenticated wget && \
+    mkdir -p /usr/share/tesseract-ocr/tessdata && \
+    cd /usr/share/tesseract-ocr/tessdata && \
+    echo "Downloading Vietnamese traineddata (fast version for better performance)..." && \
+    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/vie.traineddata -O vie.traineddata || \
+     wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/vie.traineddata -O vie.traineddata || \
+     echo "Failed to download vie.traineddata") && \
+    echo "Downloading English traineddata (fast version for better performance)..." && \
+    (wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata -O eng.traineddata || \
+     wget -q https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/eng.traineddata -O eng.traineddata || \
+     echo "Failed to download eng.traineddata") && \
+    apt-get remove -y wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Verify tessdata location and files
+RUN echo "=== Checking tesseract data directory ===" && \
+    ls -la /usr/share/tesseract-ocr/tessdata/ && \
+    echo "=== Language files available ===" && \
+    ls -la /usr/share/tesseract-ocr/tessdata/*.traineddata
+
+RUN ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so
+
+WORKDIR /app/x64
+
+RUN ln -sf /usr/lib/x86_64-linux-gnu/liblept.so.5 /app/x64/libleptonica-1.82.0.so
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libtesseract.so.4 /app/x64/libtesseract50.so
+
+# Debug: Verify symlinks were created
+RUN echo "=== Symlinks in /app/x64 ===" && \
+    ls -la /app/x64/ && \
+    echo "=== Available tesseract libs ===" && \
+    find /usr/lib/x86_64-linux-gnu -name "*tesseract*" && \
+    echo "=== Available leptonica libs ===" && \
+    find /usr/lib/x86_64-linux-gnu -name "*lept*"
+
+# Set library paths
+ENV LD_LIBRARY_PATH=/app/x64:/usr/lib/x86_64-linux-gnu:/usr/lib
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/tessdata
+
+# Copy tessdata into /app directory for easy access
+RUN mkdir -p /app/tessdata && \
+    cp -r /usr/share/tesseract-ocr/tessdata/* /app/tessdata/ 2>/dev/null || true
+
+# Verify tessdata files
+RUN echo "=== Tesseract data files in /app/tessdata ===" && \
+    ls -la /app/tessdata/
+
+# Clean up to reduce image size
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Hack to Allow Tesseract to work
+
+# Switch back to the non-root user
 USER app
 WORKDIR /app
 

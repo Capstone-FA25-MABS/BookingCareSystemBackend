@@ -120,11 +120,12 @@ message DoctorResponse {
 
 // Lightweight doctor information for performance optimization
 message DoctorBasicInfo {
-  string account_id = 1;
-  string email = 2;
-  string full_name = 3;
-  string avatar_url = 4;
-  string address = 5;
+  string id = 1;           // Doctor entity ID (for schedule lookup)
+  string account_id = 2;
+  string email = 3;
+  string full_name = 4;
+  string avatar_url = 5;
+  string address = 6;
 }
 
 // Response message for batch doctor retrieval

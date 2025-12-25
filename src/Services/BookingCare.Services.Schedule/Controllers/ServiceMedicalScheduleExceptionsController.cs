@@ -3,6 +3,7 @@ using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Schedule.Controllers;
@@ -54,5 +55,31 @@ public class ServiceMedicalScheduleExceptionsController : BaseApiController
     {
         await _scheduleService.DeleteServiceMedicalScheduleExceptionAsync(id);
         return Success<string>("Service medical schedule exception deleted successfully");
+    }
+
+    /// <summary>
+    /// Get pending exception requests for approval (filtered by hospital or service medical)
+    /// </summary>
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPendingExceptionRequests(
+        [FromQuery] Guid? hospitalId = null,
+        [FromQuery] Guid? serviceMedicalId = null)
+    {
+        var pendingRequests = await _scheduleService.GetPendingServiceMedicalExceptionRequestsAsync(hospitalId, serviceMedicalId);
+        return Success(pendingRequests, "Pending service medical exception requests retrieved successfully");
+    }
+
+    /// <summary>
+    /// Approve or reject an exception request (Staff only)
+    /// </summary>
+    [HttpPut("review")]
+    public async Task<IActionResult> ReviewExceptionRequest([FromBody] ReviewExceptionRequest request)
+    {
+        // Get reviewer ID from JWT token
+        var reviewerId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+        var reviewed = await _scheduleService.ReviewServiceMedicalScheduleExceptionAsync(request, reviewerId);
+        var statusText = reviewed.Status == "APPROVED" ? "approved" : "rejected";
+        return Success(reviewed, $"Exception request {statusText} successfully");
     }
 }

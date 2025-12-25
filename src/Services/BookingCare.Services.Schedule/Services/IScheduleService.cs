@@ -18,6 +18,11 @@ public interface IScheduleService
     Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date);
     Task<List<DoctorScheduleExceptionDto>> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request);
     Task DeleteDoctorScheduleExceptionAsync(Guid id);
+    Task<DoctorScheduleExceptionDto> ReviewDoctorScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId);
+    Task<IEnumerable<DoctorScheduleExceptionWithInfoDto>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null);
+
+    // Get all exceptions for a specific doctor (all statuses - for doctor's own view)
+    Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsByDoctorIdAsync(Guid doctorId);
 
     // ClinicException operations
     Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
@@ -42,6 +47,8 @@ public interface IScheduleService
     Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date);
     Task<List<ServiceMedicalScheduleExceptionDto>> CreateServiceMedicalScheduleExceptionAsync(CreateServiceMedicalScheduleExceptionRequest request);
     Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionDto> ReviewServiceMedicalScheduleExceptionAsync(ReviewExceptionRequest request, Guid reviewerId);
+    Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null);
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request, Guid? currentUserId = null);
@@ -49,4 +56,10 @@ public interface IScheduleService
     // Specialty available slots operations (for "hospital assigns doctor" mode)
     // Aggregates availability across all doctors in the specialty
     Task<SpecialtyAvailableSlotsResponseDto> GetSpecialtyAvailableSlotsAsync(GetSpecialtyAvailableSlotsRequest request, Guid? currentUserId = null);
+
+    // List doctor schedules by hospital (for Staff management)
+    Task<ListDoctorSchedulesResponseDto> ListDoctorSchedulesByHospitalAsync(ListDoctorSchedulesRequest request);
+
+    // List service medical schedules by hospital (for Staff management)
+    Task<ListServiceMedicalSchedulesResponseDto> ListServiceMedicalSchedulesByHospitalAsync(ListServiceMedicalSchedulesRequest request);
 }

@@ -33,6 +33,31 @@ public abstract class ScheduleExceptionEntityBase
     [Column("reason")]
     public string? Reason { get; set; }
 
+    /// <summary>
+    /// Status of the exception request (for approval workflow)
+    /// </summary>
+    [Column("status")]
+    public ExceptionRequestStatus Status { get; set; } = ExceptionRequestStatus.PENDING;
+
+    /// <summary>
+    /// ID of the staff who approved/rejected the request
+    /// </summary>
+    [Column("reviewed_by")]
+    public Guid? ReviewedBy { get; set; }
+
+    /// <summary>
+    /// Timestamp when the request was reviewed
+    /// </summary>
+    [Column("reviewed_at")]
+    public DateTime? ReviewedAt { get; set; }
+
+    /// <summary>
+    /// Comments from the reviewer
+    /// </summary>
+    [StringLength(500)]
+    [Column("review_comments")]
+    public string? ReviewComments { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

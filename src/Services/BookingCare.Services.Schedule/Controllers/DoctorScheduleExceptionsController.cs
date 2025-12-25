@@ -1,8 +1,8 @@
-using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Schedule.Controllers;
@@ -24,9 +24,31 @@ public class DoctorScheduleExceptionsController : BaseApiController
     }
 
     /// <summary>
+    /// Get pending exception requests for approval (filtered by hospital or doctor)
+    /// </summary>
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPendingExceptionRequests(
+        [FromQuery] Guid? hospitalId = null,
+        [FromQuery] Guid? doctorId = null)
+    {
+        var pendingRequests = await _scheduleService.GetPendingDoctorExceptionRequestsAsync(hospitalId, doctorId);
+        return Success(pendingRequests, "Pending doctor exception requests retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get all exception requests for a specific doctor (all statuses - for doctor's own view)
+    /// </summary>
+    [HttpGet("my-requests/{doctorId:guid}", Order = 1)]
+    public async Task<IActionResult> GetMyExceptionRequests(Guid doctorId)
+    {
+        var requests = await _scheduleService.GetDoctorExceptionsByDoctorIdAsync(doctorId);
+        return Success(requests, "Doctor exception requests retrieved successfully");
+    }
+
+    /// <summary>
     /// Get doctor's schedule exceptions for a specific date
     /// </summary>
-    [HttpGet("{doctorId}/{date}")]
+    [HttpGet("by-date/{doctorId:guid}/{date}", Order = 2)]
     public async Task<IActionResult> GetDoctorExceptions(Guid doctorId, DateOnly date)
     {
         var exceptions = await _scheduleService.GetDoctorExceptionsAsync(doctorId, date);
@@ -49,10 +71,24 @@ public class DoctorScheduleExceptionsController : BaseApiController
     /// <summary>
     /// Delete a doctor schedule exception
     /// </summary>
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteDoctorScheduleException(Guid id)
     {
         await _scheduleService.DeleteDoctorScheduleExceptionAsync(id);
         return Success<string>("Doctor schedule exception deleted successfully");
+    }
+
+    /// <summary>
+    /// Approve or reject an exception request (Staff only)
+    /// </summary>
+    [HttpPut("review")]
+    public async Task<IActionResult> ReviewExceptionRequest([FromBody] ReviewExceptionRequest request)
+    {
+        // Get reviewer ID from JWT token
+        var reviewerId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+        var reviewed = await _scheduleService.ReviewDoctorScheduleExceptionAsync(request, reviewerId);
+        var statusText = reviewed.Status == "APPROVED" ? "approved" : "rejected";
+        return Success(reviewed, $"Exception request {statusText} successfully");
     }
 }
