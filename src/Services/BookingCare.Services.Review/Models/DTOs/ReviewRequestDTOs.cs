@@ -127,6 +127,11 @@ public class BatchDoctorsStatisticsRequest
     /// List of doctor IDs to get statistics for
     /// </summary>
     public List<Guid> DoctorIds { get; set; } = new();
+
+    /// <summary>
+    /// Optional hospital ID to filter reviews by hospital
+    /// </summary>
+    public Guid? HospitalId { get; set; }
 }
 
 /// <summary>
@@ -138,6 +143,11 @@ public class BatchServicesStatisticsRequest
     /// List of service IDs to get statistics for
     /// </summary>
     public List<Guid> ServiceIds { get; set; } = new();
+
+    /// <summary>
+    /// Optional hospital ID to filter reviews by hospital
+    /// </summary>
+    public Guid? HospitalId { get; set; }
 }
 
 /// <summary>
