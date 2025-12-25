@@ -1,6 +1,6 @@
 USE [master]
 GO
-/****** Object:  Database [MABS_Content]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Database [MABS_Content]    Script Date: 25/12/2025 12:30:25 SA ******/
 CREATE DATABASE [MABS_Content]
  CONTAINMENT = NONE
  ON  PRIMARY 
@@ -82,7 +82,7 @@ ALTER DATABASE [MABS_Content] SET QUERY_STORE (OPERATION_MODE = READ_WRITE, CLEA
 GO
 USE [MABS_Content]
 GO
-/****** Object:  Table [dbo].[__EFMigrationsHistory]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Table [dbo].[__EFMigrationsHistory]    Script Date: 25/12/2025 12:30:25 SA ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -96,7 +96,7 @@ CREATE TABLE [dbo].[__EFMigrationsHistory](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[blog_categories]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Table [dbo].[blog_categories]    Script Date: 25/12/2025 12:30:25 SA ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -116,7 +116,7 @@ CREATE TABLE [dbo].[blog_categories](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[blogs]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Table [dbo].[blogs]    Script Date: 25/12/2025 12:30:25 SA ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -144,7 +144,7 @@ CREATE TABLE [dbo].[blogs](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[hospital_faqs]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Table [dbo].[hospital_faqs]    Script Date: 25/12/2025 12:30:25 SA ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -386,25 +386,25 @@ INSERT [dbo].[hospital_faqs] ([Id], [HospitalId], [Question], [Answer], [Created
 INSERT [dbo].[hospital_faqs] ([Id], [HospitalId], [Question], [Answer], [CreatedBy], [DisplayOrder], [CreatedAt], [UpdatedAt]) VALUES (N'18f0e559-ecca-4fb8-8fe3-f8609f9370eb', N'f216f81f-67eb-412f-887f-559f27329890', N'Có thể chọn bác sĩ khi đi khám không?', N'Người bệnh có thể đăng ký khám với bác sĩ mong muốn nếu bác sĩ đó có lịch làm việc trong ngày.', N'74812de1-1523-450f-8a27-f1952d0147de', 3, CAST(N'2025-12-20T16:17:15.1752838' AS DateTime2), CAST(N'2025-12-20T16:17:15.1752838' AS DateTime2))
 INSERT [dbo].[hospital_faqs] ([Id], [HospitalId], [Question], [Answer], [CreatedBy], [DisplayOrder], [CreatedAt], [UpdatedAt]) VALUES (N'6cf95267-adb5-41a9-8939-fff5181f92a1', N'd594f047-1245-4b09-805f-6046806b1003', N'Địa chỉ của bệnh viện ở đâu ?', N'2 Nguyễn Thông, Phường 6, Quận 3, Thành phố Hồ Chí Minh', N'e177efe4-8bf0-4f80-aeea-56773185b45d', 1, CAST(N'2025-12-20T16:27:17.0004901' AS DateTime2), CAST(N'2025-12-20T16:27:17.0004901' AS DateTime2))
 GO
-/****** Object:  Index [IX_blog_categories_ParentId]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Index [IX_blog_categories_ParentId]    Script Date: 25/12/2025 12:30:25 SA ******/
 CREATE NONCLUSTERED INDEX [IX_blog_categories_ParentId] ON [dbo].[blog_categories]
 (
 	[ParentId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 GO
-/****** Object:  Index [IX_blogs_BlogCategoryId]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Index [IX_blogs_BlogCategoryId]    Script Date: 25/12/2025 12:30:25 SA ******/
 CREATE NONCLUSTERED INDEX [IX_blogs_BlogCategoryId] ON [dbo].[blogs]
 (
 	[BlogCategoryId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 GO
-/****** Object:  Index [IX_hospital_faqs_HospitalId]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Index [IX_hospital_faqs_HospitalId]    Script Date: 25/12/2025 12:30:25 SA ******/
 CREATE NONCLUSTERED INDEX [IX_hospital_faqs_HospitalId] ON [dbo].[hospital_faqs]
 (
 	[HospitalId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 GO
-/****** Object:  Index [IX_hospital_faqs_HospitalId_DisplayOrder]    Script Date: 24/12/2025 10:48:11 CH ******/
+/****** Object:  Index [IX_hospital_faqs_HospitalId_DisplayOrder]    Script Date: 25/12/2025 12:30:25 SA ******/
 CREATE NONCLUSTERED INDEX [IX_hospital_faqs_HospitalId_DisplayOrder] ON [dbo].[hospital_faqs]
 (
 	[HospitalId] ASC,
