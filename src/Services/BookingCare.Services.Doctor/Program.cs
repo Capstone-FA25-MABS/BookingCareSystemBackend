@@ -41,6 +41,7 @@ builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 // Service registration
 builder.Services.AddScoped<BookingCare.Shared.Common.Interfaces.ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
+builder.Services.AddScoped<IDoctorExportService, DoctorExportService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
