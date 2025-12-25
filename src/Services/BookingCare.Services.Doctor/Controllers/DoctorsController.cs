@@ -18,16 +18,19 @@ namespace BookingCare.Services.Doctor.Controllers;
 public class DoctorsController : BaseApiController
 {
     private readonly IDoctorService _doctorService;
+    private readonly IDoctorExportService _exportService;
     private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly ILogger<DoctorsController> _logger;
 
     public DoctorsController(
         IDoctorService doctorService,
+        IDoctorExportService exportService,
         FileUploadOrchestrator uploadOrchestrator,
         ILogger<DoctorsController> logger
     )
     {
         _doctorService = doctorService;
+        _exportService = exportService;
         _uploadOrchestrator = uploadOrchestrator;
         _logger = logger;
     }
@@ -885,6 +888,55 @@ public class DoctorsController : BaseApiController
     {
         var exists = await _doctorService.DoctorPriceExistsAsync(doctorId, priceId);
         return Success<object>(new { exists }, "Doctor-price relationship validation completed");
+    }
+
+    #endregion
+
+    #region Export Endpoints
+
+    /// <summary>
+    /// Export doctors list to Excel format
+    /// </summary>
+    [HttpPost("export/excel")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff")]
+    public async Task<IActionResult> ExportDoctorsToExcel([FromBody] DoctorAdvancedFilterRequest filter)
+    {
+        try
+        {
+            var fileBytes = await _exportService.ExportDoctorsToExcelAsync(filter);
+            var fileName = $"DanhSachBacSi_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            return File(fileBytes, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting doctors to Excel");
+            return BadRequest("Failed to export doctors to Excel");
+        }
+    }
+
+    /// <summary>
+    /// Export doctors list to PDF format
+    /// </summary>
+    [HttpPost("export/pdf")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff")]
+    public async Task<IActionResult> ExportDoctorsToPdf([FromBody] DoctorAdvancedFilterRequest filter)
+    {
+        try
+        {
+            var fileBytes = await _exportService.ExportDoctorsToPdfAsync(filter);
+            var fileName = $"DanhSachBacSi_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+
+            // Return as HTML for now (can be enhanced with actual PDF library)
+            return File(fileBytes, "text/html", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting doctors to PDF");
+            return BadRequest("Failed to export doctors to PDF");
+        }
     }
 
     #endregion
