@@ -110,4 +110,17 @@ public class DoctorSchedulesController : BaseApiController
         var slots = await _scheduleService.GetAvailableSlotsAsync(request, currentUserId);
         return Success(slots, "Available slots retrieved successfully");
     }
+
+    /// <summary>
+    /// List all doctor schedules with filtering (for Staff management)
+    /// </summary>
+    [HttpGet("list")]
+    public async Task<IActionResult> ListDoctorSchedules(
+        [FromQuery] ListDoctorSchedulesRequest request)
+    {
+        // Use the new service method that supports hospitalId filtering
+        var result = await _scheduleService.ListDoctorSchedulesByHospitalAsync(request);
+
+        return Success(result, "Doctor schedules retrieved successfully");
+    }
 }

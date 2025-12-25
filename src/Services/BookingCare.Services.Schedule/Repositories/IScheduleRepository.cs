@@ -21,6 +21,12 @@ public interface IScheduleRepository
     Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate);
     Task<DoctorScheduleExceptionEntity> CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception);
     Task DeleteDoctorScheduleExceptionAsync(Guid id);
+    Task<DoctorScheduleExceptionEntity?> GetDoctorScheduleExceptionByIdAsync(Guid id);
+    Task<DoctorScheduleExceptionEntity> UpdateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception);
+    Task<IEnumerable<DoctorScheduleExceptionEntity>> GetPendingDoctorExceptionRequestsAsync(Guid? hospitalId = null, Guid? doctorId = null);
+
+    // Get all exceptions for a specific doctor (all statuses)
+    Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsByDoctorIdAsync(Guid doctorId);
 
     // ClinicException operations
     Task<IEnumerable<ClinicExceptionEntity>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
@@ -52,7 +58,22 @@ public interface IScheduleRepository
     Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate);
     Task<ServiceMedicalScheduleExceptionEntity> CreateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception);
     Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionEntity?> GetServiceMedicalScheduleExceptionByIdAsync(Guid id);
+    Task<ServiceMedicalScheduleExceptionEntity> UpdateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception);
+    Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetPendingServiceMedicalExceptionRequestsAsync(Guid? hospitalId = null, Guid? serviceMedicalId = null);
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTime>> GetServiceMedicalAvailableSlotsAsync(Guid serviceMedicalId, DateOnly date);
+
+    // List doctor schedules by doctor IDs with date range
+    Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorSchedulesByDoctorIdsAsync(
+        List<Guid> doctorIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null);
+
+    // List service medical schedules by service medical IDs with date range
+    Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalSchedulesByServiceMedicalIdsAsync(
+        List<Guid> serviceMedicalIds,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null);
 }

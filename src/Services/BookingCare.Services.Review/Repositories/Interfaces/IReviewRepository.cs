@@ -67,15 +67,23 @@ public interface IReviewRepository : IReviewQueryOperations
     /// Gets comprehensive statistics for multiple doctors in a single query
     /// </summary>
     /// <param name="doctorIds">List of doctor IDs</param>
+    /// <param name="hospitalId">Optional hospital ID to filter by</param>
     /// <returns>Batch statistics response for all doctors</returns>
-    Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(List<Guid> doctorIds);
+    Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(
+        List<Guid> doctorIds,
+        Guid? hospitalId = null
+    );
 
     /// <summary>
     /// Gets comprehensive statistics for multiple services in a single query
     /// </summary>
     /// <param name="serviceIds">List of service IDs</param>
+    /// <param name="hospitalId">Optional hospital ID to filter by</param>
     /// <returns>Batch statistics response for all services</returns>
-    Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(List<Guid> serviceIds);
+    Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(
+        List<Guid> serviceIds,
+        Guid? hospitalId = null
+    );
 
     /// <summary>
     /// Gets comprehensive statistics for multiple hospitals in a single query
